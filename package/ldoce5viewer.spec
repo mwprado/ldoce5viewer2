@@ -1,14 +1,11 @@
-%global commit bd9df46f0fe32be81693a378939629f25b6cf2eb
-%global shortcommit %(c=%{commit}; echo ${c:0:7})
-
 Name:           ldoce5viewer
 Version:        2013.04.24
-Release:        2.20260920git%{shortcommit}%{?dist}
+Release:        3%{?dist}
 Summary:        Dictionary viewer for the Longman Dictionary of Contemporary English 5th Edition
 
 License:        GPL-3.0-or-later AND LicenseRef-Fedora-Public-Domain
 URL:            https://github.com/mwprado/ldoce5viewer2
-Source0:        %{url}/archive/%{commit}.tar.gz
+Source0:        %{url}/archive/refs/heads/master.tar.gz
 
 BuildArch:      noarch
 
@@ -27,7 +24,7 @@ The LDOCE dictionary data itself is not distributed with this package.
 %pyproject_buildrequires -r
 
 %prep
-%autosetup -n ldoce5viewer2-%{commit}
+%autosetup -n ldoce5viewer2-master
 
 %build
 %pyproject_wheel
@@ -58,6 +55,10 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/ldoce5viewer.desktop
 %{_datadir}/icons/hicolor/scalable/apps/ldoce5viewer.svg
 
 %changelog
+* Sun Sep 20 2026 Moacyr Prado - 2013.04.24-3
+- Temporarily build from the current master branch instead of a pinned commit
+- Simplify the release tag while tracking a moving branch
+
 * Sun Sep 20 2026 Moacyr Prado - 2013.04.24-2.20260920gitbd9df46
 - Fix PEP 517 build requirement generation by making the project version static
 - Avoid setuptools importing the top-level ldoce5viewer.py launcher during metadata evaluation
