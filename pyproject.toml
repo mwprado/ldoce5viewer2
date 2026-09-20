@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ldoce5viewer"
-dynamic = ["version"]
+version = "2013.4.24"
 description = "Fast, free dictionary viewer for the Longman Dictionary of Contemporary English 5th Edition"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -41,5 +41,3 @@ include-package-data = true
 where = ["."]
 include = ["ldoce5viewer*"]
 
-[tool.setuptools.dynamic]
-version = { attr = "ldoce5viewer.__version__" }
