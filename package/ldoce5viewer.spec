@@ -1,9 +1,9 @@
-%global commit 6f7e6d7d5b1043d631c02df80bfadd66b8f893b6
+%global commit bd9df46f0fe32be81693a378939629f25b6cf2eb
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 Name:           ldoce5viewer
 Version:        2013.04.24
-Release:        1.20260920git%{shortcommit}%{?dist}
+Release:        2.20260920git%{shortcommit}%{?dist}
 Summary:        Dictionary viewer for the Longman Dictionary of Contemporary English 5th Edition
 
 License:        GPL-3.0-or-later AND LicenseRef-Fedora-Public-Domain
@@ -58,6 +58,11 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/ldoce5viewer.desktop
 %{_datadir}/icons/hicolor/scalable/apps/ldoce5viewer.svg
 
 %changelog
+* Sun Sep 20 2026 Moacyr Prado - 2013.04.24-2.20260920gitbd9df46
+- Fix PEP 517 build requirement generation by making the project version static
+- Avoid setuptools importing the top-level ldoce5viewer.py launcher during metadata evaluation
+- Update Source0 to the corrected source commit
+
 * Sun Sep 20 2026 Moacyr Prado - 2013.04.24-1.20260920git6f7e6d7
 - Add initial Fedora RPM packaging for the PySide6/Qt6 port
 - Build with PEP 517/pyproject RPM macros
