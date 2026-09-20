@@ -31,7 +31,7 @@ classifiers = [
 Homepage = "https://forward-backward.co.jp/ldoce5viewer/"
 Repository = "https://github.com/mwprado/ldoce5viewer2"
 
-[project.scripts]
+[project.gui-scripts]
 ldoce5viewer = "ldoce5viewer.qtgui:main"
 
 [tool.setuptools]
