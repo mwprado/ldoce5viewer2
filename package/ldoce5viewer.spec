@@ -1,6 +1,6 @@
 Name:           ldoce5viewer
 Version:        2013.04.24
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        Dictionary viewer for the Longman Dictionary of Contemporary English 5th Edition
 
 License:        GPL-3.0-or-later AND LicenseRef-Fedora-Public-Domain
@@ -65,6 +65,10 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/ldoce5viewer.desktop
 %{_datadir}/icons/hicolor/scalable/apps/ldoce5viewer.svg
 
 %changelog
+* Sun Sep 20 2026 Moacyr Prado - 2013.04.24-5
+- Replace the removed Python imp module with importlib machinery
+- Restore compatibility with Python 3.14 import smoke tests
+
 * Sun Sep 20 2026 Moacyr Prado - 2013.04.24-4
 - Generate PySide6 UI and resource Python modules before building the wheel
 - Add pyside6-tools as a build dependency
