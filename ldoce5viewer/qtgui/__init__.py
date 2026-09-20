@@ -32,7 +32,6 @@ def run(argv):
 
     config = get_config()
 
-
     # Parse arguments
     optparser = OptionParser()
     optparser.set_defaults(debug=False)
