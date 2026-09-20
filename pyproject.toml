@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ldoce5viewer"
+dynamic = ["version"]
+description = "Fast, free dictionary viewer for the Longman Dictionary of Contemporary English 5th Edition"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "GPL-3.0-or-later" }
+authors = [
+  { name = "Taku Fukada", email = "naninunenor@gmail.com" },
+]
+dependencies = [
+  "PySide6>=6",
+  "lxml>=4.9.1",
+  "Whoosh>=2.7.4",
+]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: End Users/Desktop",
+  "Intended Audience :: Education",
+  "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Topic :: Education",
+]
+
+[project.urls]
+Homepage = "https://forward-backward.co.jp/ldoce5viewer/"
+Repository = "https://github.com/mwprado/ldoce5viewer2"
+
+[project.scripts]
+ldoce5viewer = "ldoce5viewer.qtgui:main"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["ldoce5viewer*"]
+
+[tool.setuptools.dynamic]
+version = { attr = "ldoce5viewer.__version__" }
