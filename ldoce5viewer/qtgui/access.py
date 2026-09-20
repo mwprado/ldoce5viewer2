@@ -1,8 +1,6 @@
 """application-specific URI scheme handler for QtWebKit"""
 
-from importlib.machinery import FrozenImporter
-import os.path
-import sys
+from importlib.resources import files
 import traceback
 
 from PySide6.QtCore import QBuffer, QUrl, QUrlQuery
@@ -12,7 +10,6 @@ from PySide6.QtWebEngineCore import (
     QWebEngineUrlSchemeHandler,
 )
 
-from .. import __name__ as basepkgname
 from .. import __version__
 from ..ldoce5 import LDOCE5, ArchiveError, FilemapError, NotFoundError
 from ..utils.text import enc_utf8
@@ -20,8 +17,6 @@ from .advanced import search_and_render
 from .config import get_config
 
 # from .utils import fontfallback
-
-STATIC_REL_PATH = "static"
 
 _static_cache = {}
 
@@ -32,31 +27,10 @@ def _load_static_data(filename):
     if filename in _static_cache:
         return _static_cache[filename]
 
-    is_frozen = bool(getattr(sys, "frozen", False)) or (
-        FrozenImporter.find_spec("__main__") is not None
-    )
-
-    if is_frozen:
-        if sys.platform.startswith("darwin"):
-            path = os.path.join(
-                os.path.dirname(sys.executable),
-                "../Resources",
-                STATIC_REL_PATH,
-                filename,
-            )
-        else:
-            path = os.path.join(
-                os.path.dirname(sys.executable), STATIC_REL_PATH, filename
-            )
-        with open(path, "rb") as f:
-            data = f.read()
-    else:
-        try:
-            from pkgutil import get_data as _get
-        except ImportError:
-            from pkg_resources import resource_string as _get
-
-        data = _get(basepkgname, os.path.join(STATIC_REL_PATH, filename))
+    resource = files("ldoce5viewer").joinpath("static")
+    for part in filename.split("/"):
+        resource = resource.joinpath(part)
+    data = resource.read_bytes()
 
     if filename.endswith(".css"):
         s = data.decode("utf-8")
