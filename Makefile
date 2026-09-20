@@ -1,17 +1,20 @@
 PKG := ldoce5viewer
-PYTHON := python
+PYTHON := python3
 
 build: clean precompile
+	$(PYTHON) -m build
+
+bundle: clean precompile
 	pyinstaller ldoce5viewer.spec
 
-install: build
-	$(PYTHON) ./setup.py install
+install: precompile
+	$(PYTHON) -m pip install .
 	cp ./ldoce5viewer.desktop /usr/share/applications/
 	cp ./ldoce5viewer/qtgui/resources/ldoce5viewer.svg /usr/share/pixmaps/
 	[ -x /usr/bin/update-desktop-database ] && sudo update-desktop-database -q
 
 sdist: precompile
-	$(PYTHON) ./setup.py sdist
+	$(PYTHON) -m build --sdist
 
 precompile: qtui qtresource
 
@@ -21,7 +24,7 @@ qtui:
 qtresource:
 	cd $(PKG)/qtgui/resources/; $(MAKE)
 
-.PHONY: clean clean-build
+.PHONY: build bundle install sdist precompile qtui qtresource clean clean-build
 clean: clean-build
 	cd $(PKG)/qtgui/ui/; $(MAKE) clean
 	cd $(PKG)/qtgui/resources/; $(MAKE) clean
@@ -29,9 +32,10 @@ clean: clean-build
 clean-build:
 	rm -rf build
 	rm -rf dist
+	rm -rf *.egg-info
 	rm -f MANIFEST
 
-dmg: build
+dmg: bundle
 	# Create a folder (named dmg) to prepare our DMG in (if it doesn't already exist).
 	mkdir -p dist/dmg
 
