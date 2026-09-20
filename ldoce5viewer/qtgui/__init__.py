@@ -2,9 +2,7 @@
 
 _SINGLEAPP_KEY = "ed437af1-0388-4e13-90e9-486bdc88c77a"
 
-import codecs
 import logging
-import os.path
 import sys
 from optparse import OptionParser
 
@@ -29,27 +27,11 @@ if not hasattr(QLineEdit, "setPlaceholderText"):
 from . import resources, ui
 
 
-def _setup_py2exe(config):
-    # suspend py2exe's logging facility
-    log_path = os.path.join(config._config_dir, "log.txt")
-    try:
-        f = codecs.open(log_path, "w", encoding="utf-8")
-    except:
-        pass
-    else:
-        sys.stderr = f
-
-
 def run(argv):
     """start the application"""
 
     config = get_config()
 
-    # py2exe
-    if sys.platform == "win32" and (
-        hasattr(sys, "frozen") or hasattr(sys, "importers")
-    ):
-        _setup_py2exe(config)
 
     # Parse arguments
     optparser = OptionParser()
