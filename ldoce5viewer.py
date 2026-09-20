@@ -1,9 +1,6 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
-import sys
-
-from ldoce5viewer import qtgui
+from ldoce5viewer.qtgui import main
 
 if __name__ == "__main__":
-    sys.exit(qtgui.run(sys.argv))
-    sys.exit()
+    raise SystemExit(main())
