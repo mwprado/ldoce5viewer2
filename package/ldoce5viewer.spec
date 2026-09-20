@@ -58,7 +58,7 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/ldoce5viewer.desktop
 %{_datadir}/icons/hicolor/scalable/apps/ldoce5viewer.svg
 
 %changelog
-* Sun Sep 20 2026 Moacyr Prado <mwprado@users.noreply.github.com> - 2013.04.24-1.20260920git6f7e6d7
+* Sun Sep 20 2026 Moacyr Prado - 2013.04.24-1.20260920git6f7e6d7
 - Add initial Fedora RPM packaging for the PySide6/Qt6 port
 - Build with PEP 517/pyproject RPM macros
 - Install desktop entry, AppStream metadata, and application icon
