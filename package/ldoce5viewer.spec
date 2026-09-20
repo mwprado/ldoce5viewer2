@@ -1,6 +1,6 @@
 Name:           ldoce5viewer
 Version:        2013.04.24
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Dictionary viewer for the Longman Dictionary of Contemporary English 5th Edition
 
 License:        GPL-3.0-or-later AND LicenseRef-Fedora-Public-Domain
@@ -12,6 +12,7 @@ BuildArch:      noarch
 BuildRequires:  python3-devel
 BuildRequires:  pyproject-rpm-macros
 BuildRequires:  desktop-file-utils
+BuildRequires:  pyside6-tools
 
 %description
 LDOCE5 Viewer is a desktop dictionary viewer for the Longman Dictionary
@@ -27,6 +28,13 @@ The LDOCE dictionary data itself is not distributed with this package.
 %autosetup -n ldoce5viewer2-master
 
 %build
+# Generate Python modules from the Qt Designer and resource files before
+# building the wheel. These modules are imported by the application at runtime.
+pyside6-uic ldoce5viewer/qtgui/ui/advanced.ui -o ldoce5viewer/qtgui/ui/advanced.py
+pyside6-uic ldoce5viewer/qtgui/ui/indexer.ui -o ldoce5viewer/qtgui/ui/indexer.py
+pyside6-uic ldoce5viewer/qtgui/ui/main.ui -o ldoce5viewer/qtgui/ui/main.py
+pyside6-rcc ldoce5viewer/qtgui/resources/resource.qrc -o ldoce5viewer/qtgui/resources/__init__.py
+
 %pyproject_wheel
 
 %install
@@ -43,7 +51,9 @@ install -Dm0644 ldoce5viewer/qtgui/resources/ldoce5viewer.svg \
     %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/ldoce5viewer.svg
 
 %check
-%pyproject_check_import
+# icongen.py is a development-time icon generator and requires Pillow; it is
+# not imported by the application at runtime.
+%pyproject_check_import -e 'ldoce5viewer.qtgui.resources.icons.icongen'
 desktop-file-validate %{buildroot}%{_datadir}/applications/ldoce5viewer.desktop
 
 %files -f %{pyproject_files}
@@ -55,6 +65,12 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/ldoce5viewer.desktop
 %{_datadir}/icons/hicolor/scalable/apps/ldoce5viewer.svg
 
 %changelog
+* Sun Sep 20 2026 Moacyr Prado - 2013.04.24-4
+- Generate PySide6 UI and resource Python modules before building the wheel
+- Add pyside6-tools as a build dependency
+- Keep the import smoke test while excluding the development-only icon generator
+- Support Python 3.14 configparser API in the IDM reader
+
 * Sun Sep 20 2026 Moacyr Prado - 2013.04.24-3
 - Temporarily build from the current master branch instead of a pinned commit
 - Simplify the release tag while tracking a moving branch
