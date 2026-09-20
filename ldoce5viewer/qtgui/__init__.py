@@ -118,3 +118,8 @@ def run(argv):
     # Quit
     config.save()
     return r
+
+
+def main():
+    """Console/GUI entry point installed by the Python package."""
+    return run(sys.argv)
