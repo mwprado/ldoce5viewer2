@@ -1,9 +1,10 @@
-include README.txt
+include README.md
 include COPYING.txt
 include LICENSE.txt
-include whoosh/LICENSE.txt
 include ldoce5viewer.py
 include ldoce5viewer.desktop
+include ldoce5viewer.appdata.xml
 include scripts/ldoce5viewer
-include ldoce5viewer/qtgui/resources/ldoce5viewer.svg
 recursive-include ldoce5viewer/static *
+recursive-include ldoce5viewer/qtgui/resources *
+recursive-include ldoce5viewer/qtgui/ui *
