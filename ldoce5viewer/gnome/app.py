@@ -9,7 +9,7 @@ gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
 gi.require_version("WebKit", "6.0")
 
-from gi.repository import Adw, Gio, GLib, Gtk, WebKit
+from gi.repository import Adw, Gio, GLib, Gtk, Pango, WebKit
 
 from ..facade import ViewerFacade
 from ..ldoce5 import ArchiveError, FilemapError, NotFoundError
@@ -25,6 +25,7 @@ class ViewerWindow(Adw.ApplicationWindow):
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ldoce-search")
         self._search_generation = 0
         self._search_timer = None
+        self._audio = None
 
         self.set_title("LDOCE5 Viewer")
         self.set_default_size(1100, 720)
@@ -72,13 +73,15 @@ class ViewerWindow(Adw.ApplicationWindow):
         paned.set_start_child(result_scroll)
 
         self.web_context = WebKit.WebContext.get_default()
-        for scheme in ("dict", "static", "audio", "lookup"):
+        schemes = ("dict", "static", "audio", "lookup", "search")
+        for scheme in schemes:
             self.web_context.register_uri_scheme(scheme, self._on_uri_scheme_request)
 
         security = self.web_context.get_security_manager()
-        for scheme in ("dict", "static", "audio", "lookup"):
+        for scheme in schemes:
             security.register_uri_scheme_as_local(scheme)
             security.register_uri_scheme_as_secure(scheme)
+            security.register_uri_scheme_as_cors_enabled(scheme)
 
         self.web_view = WebKit.WebView.new_with_context(self.web_context)
         self.web_view.set_hexpand(True)
@@ -100,9 +103,8 @@ class ViewerWindow(Adw.ApplicationWindow):
 
         self.search_entry.grab_focus()
 
-    def close(self):
+    def shutdown(self):
         self._executor.shutdown(wait=False, cancel_futures=True)
-        return super().close()
 
     def _on_search_changed(self, entry):
         if self._search_timer is not None:
@@ -166,7 +168,7 @@ class ViewerWindow(Adw.ApplicationWindow):
 
             label = Gtk.Label(label=result.plain_label)
             label.set_xalign(0.0)
-            label.set_ellipsize(3)
+            label.set_ellipsize(Pango.EllipsizeMode.END)
             label.set_margin_top(7)
             label.set_margin_bottom(7)
             label.set_margin_start(10)
@@ -192,6 +194,16 @@ class ViewerWindow(Adw.ApplicationWindow):
             self._finish_request(
                 request,
                 b"<html><body></body></html>",
+                "text/html;charset=utf-8",
+            )
+            return
+
+        if uri.startswith("search:"):
+            self._finish_request(
+                request,
+                b"<html><body><h2>Advanced search</h2>"
+                b"<p>The GNOME frontend does not expose advanced search yet.</p>"
+                b"</body></html>",
                 "text/html;charset=utf-8",
             )
             return
@@ -237,6 +249,8 @@ class LDOCEApplication(Adw.Application):
         self.window.present()
 
     def do_shutdown(self):
+        if self.window is not None:
+            self.window.shutdown()
         if self.facade is not None:
             self.facade.close()
         super().do_shutdown()
