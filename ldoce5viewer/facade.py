@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from importlib.resources import files
 import mimetypes
 import os
+from typing import Optional
 from urllib.parse import parse_qs, urlsplit
 
 from . import fulltext, incremental
@@ -21,7 +22,7 @@ class SearchResult:
     path: str
     sort_key: str
     priority: int
-    highlight: str | None = None
+    highlight: Optional[str] = None
 
     @property
     def plain_label(self):
@@ -30,7 +31,8 @@ class SearchResult:
 
     @property
     def uri(self):
-        return "dict://" + self.path
+        path = self.path if self.path.startswith("/") else "/" + self.path
+        return "dict://" + path
 
 
 @dataclass(frozen=True)
@@ -79,7 +81,12 @@ class ViewerFacade:
             "fulltext_definitions": os.path.isdir(self.config.fulltext_defexa_path),
         }
 
-    def search(self, query, incremental_limit=_INCREMENTAL_LIMIT, fulltext_limit=_FULLTEXT_LIMIT):
+    def search(
+        self,
+        query,
+        incremental_limit=_INCREMENTAL_LIMIT,
+        fulltext_limit=_FULLTEXT_LIMIT,
+    ):
         query = query.strip()
         if not query:
             return ()
@@ -136,26 +143,36 @@ class ViewerFacade:
         return self._dictionary.get_content(path)
 
     def static_content(self, filename):
+        parts = [part for part in filename.lstrip("/").split("/") if part]
+        if any(part in (".", "..") for part in parts):
+            raise NotFoundError(filename)
+
         resource = files("ldoce5viewer").joinpath("static")
-        for part in filename.lstrip("/").split("/"):
-            if part:
-                resource = resource.joinpath(part)
+        for part in parts:
+            resource = resource.joinpath(part)
         data = resource.read_bytes()
         mime = mimetypes.guess_type(filename)[0] or "application/octet-stream"
         return data, mime
 
+    @staticmethod
+    def _uri_path(parsed):
+        if parsed.netloc:
+            return "/" + parsed.netloc + parsed.path
+        return parsed.path
+
     def resolve_uri(self, uri):
         parsed = urlsplit(uri)
         scheme = parsed.scheme.lower()
+        path = self._uri_path(parsed)
 
         if scheme in ("dict", "audio"):
-            data, mime = self.dictionary_content(parsed.path)
+            data, mime = self.dictionary_content(path)
             if data is None:
-                raise NotFoundError(parsed.path)
+                raise NotFoundError(path)
             return Resource(data, mime or "application/octet-stream")
 
         if scheme == "static":
-            data, mime = self.static_content(parsed.path)
+            data, mime = self.static_content(path)
             return Resource(data, mime)
 
         raise NotFoundError("unsupported URI scheme: {}".format(scheme))
@@ -166,8 +183,7 @@ class ViewerFacade:
         if parsed.scheme.lower() != "lookup":
             return None
         values = parse_qs(parsed.query)
-        query = values.get("q", [None])[0]
-        return query.replace("+", " ") if query else None
+        return values.get("q", [None])[0]
 
     def error_page(self, exc):
         if isinstance(exc, FilemapError):
