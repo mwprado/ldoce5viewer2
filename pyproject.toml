@@ -33,6 +33,7 @@ Repository = "https://github.com/mwprado/ldoce5viewer2"
 
 [project.gui-scripts]
 ldoce5viewer = "ldoce5viewer.qtgui:main"
+ldoce5viewer-gnome = "ldoce5viewer.gnome:main"
 
 [tool.setuptools]
 include-package-data = true
@@ -40,4 +41,3 @@ include-package-data = true
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["ldoce5viewer*"]
-
