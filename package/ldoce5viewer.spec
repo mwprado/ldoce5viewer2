@@ -1,6 +1,6 @@
 Name:           ldoce5viewer
 Version:        2013.04.24
-Release:        6%{?dist}
+Release:        7%{?dist}
 Summary:        Dictionary viewer for the Longman Dictionary of Contemporary English 5th Edition
 
 License:        GPL-3.0-or-later AND LicenseRef-Fedora-Public-Domain
@@ -12,7 +12,10 @@ BuildArch:      noarch
 BuildRequires:  python3-devel
 BuildRequires:  pyproject-rpm-macros
 BuildRequires:  desktop-file-utils
-BuildRequires:  pyside6-tools
+# Do not require pyside6-tools just to generate the Python UI/resource files.
+# Qt's native uic/rcc support Python generation with "-g python" and are
+# available through qt6-qtbase-devel on Fedora, EPEL 9 and EPEL 10.
+BuildRequires:  qt6-qtbase-devel
 
 %description
 LDOCE5 Viewer is a desktop dictionary viewer for the Longman Dictionary
@@ -29,11 +32,20 @@ The LDOCE dictionary data itself is not distributed with this package.
 
 %build
 # Generate Python modules from the Qt Designer and resource files before
-# building the wheel. These modules are imported by the application at runtime.
-pyside6-uic ldoce5viewer/qtgui/ui/advanced.ui -o ldoce5viewer/qtgui/ui/advanced.py
-pyside6-uic ldoce5viewer/qtgui/ui/indexer.ui -o ldoce5viewer/qtgui/ui/indexer.py
-pyside6-uic ldoce5viewer/qtgui/ui/main.ui -o ldoce5viewer/qtgui/ui/main.py
-pyside6-rcc ldoce5viewer/qtgui/resources/resource.qrc -o ldoce5viewer/qtgui/resources/__init__.py
+# building the wheel. Use the Qt6 tools directly instead of pyside6-tools;
+# this removes an unnecessary build-time dependency that is absent in EPEL 9.
+%{_qt6_libexecdir}/uic -g python \
+    ldoce5viewer/qtgui/ui/advanced.ui \
+    -o ldoce5viewer/qtgui/ui/advanced.py
+%{_qt6_libexecdir}/uic -g python \
+    ldoce5viewer/qtgui/ui/indexer.ui \
+    -o ldoce5viewer/qtgui/ui/indexer.py
+%{_qt6_libexecdir}/uic -g python \
+    ldoce5viewer/qtgui/ui/main.ui \
+    -o ldoce5viewer/qtgui/ui/main.py
+%{_qt6_libexecdir}/rcc -g python \
+    ldoce5viewer/qtgui/resources/resource.qrc \
+    -o ldoce5viewer/qtgui/resources/__init__.py
 
 %pyproject_wheel
 
@@ -65,6 +77,12 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/ldoce5viewer.desktop
 %{_datadir}/icons/hicolor/scalable/apps/ldoce5viewer.svg
 
 %changelog
+* Fri Nov 06 2026 Moacyr Prado - 2013.04.24-7
+- Replace pyside6-tools build dependency with qt6-qtbase-devel
+- Generate PySide6-compatible Python UI files with Qt6 uic -g python
+- Generate Qt resource Python code with Qt6 rcc -g python
+- Allow the build to pass the pyside6-tools dependency stage on EPEL 9
+
 * Sun Sep 20 2026 Moacyr Prado - 2013.04.24-6
 - Load packaged static assets with importlib.resources
 - Remove obsolete py2exe/frozen-runtime handling
