@@ -15,7 +15,7 @@ def json_entries(source, source_format=None):
                 raise ValueError("JSON source must contain an array of entries")
             yield from data
 
-def import_dictionary(registry, metadata, source, source_format="json", *, progress=None, cancel=None):
+def import_dictionary(registry, metadata, source, source_format="json", *, progress=None, cancel=None, rebuild=None):
     from .core import check_cancel
     check_cancel(cancel)
     if progress:
@@ -27,7 +27,7 @@ def import_dictionary(registry, metadata, source, source_format="json", *, progr
         path = longman.validate_source(source)
         locations = longman.locations(path, cancel=cancel)
         return registry.import_entries(longman.metadata(path), longman.entries(path, locations=locations),
-                                       total=len(locations), progress=progress, cancel=cancel)
+                                       total=len(locations), progress=progress, cancel=cancel, rebuild=rebuild)
     if metadata is None:
         raise ValueError("JSON/JSONL requires --manifest")
     if source_format not in ("json", "jsonl"):
@@ -38,7 +38,8 @@ def import_dictionary(registry, metadata, source, source_format="json", *, progr
         raise ValueError("Proprietary sources require a native importer; JSON compatibility is not supported")
     if policy["method"] != "import":
         raise ValueError("Use the corresponding installation method")
-    return registry.import_entries(metadata, json_entries(source, source_format), progress=progress, cancel=cancel)
+    metadata = dict(metadata, source_path=str(Path(source).expanduser().resolve()), source_format=source_format)
+    return registry.import_entries(metadata, json_entries(source, source_format), progress=progress, cancel=cancel, rebuild=rebuild)
 
 # Shared importer descriptions for clients. Only implemented formats are listed.
 IMPORT_FORMATS = (

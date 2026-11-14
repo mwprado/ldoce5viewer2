@@ -1,4 +1,4 @@
-# Verbum 0.3.4 — Projeto Cangaço
+# Verbum 0.3.5 — Projeto Cangaço
 
 Verbum replaces the provisional DictViewer name on this development branch.
 The existing Longman application remains unchanged.
@@ -100,3 +100,7 @@ Native split header bars, navigation-sidebar results, clamped reading column, st
 ## Import feedback (0.3.4)
 
 Inline progress follows the GNOME HIG: real indexed-entry counts for Longman, activity mode for preparation/verification and unknown totals, cancellation before publication, and completion toasts. Duplicate dictionary identities are rejected without replacing existing data. The GTK thread polls progress snapshots; imports remain in the worker. Cancellation is cooperative and may wait for an archive read or integrity check to finish. See https://developer.gnome.org/hig/patterns/feedback/progress-bars.html and https://developer.gnome.org/hig/patterns/feedback/toasts.html.
+
+## Rebuilding dictionaries (0.3.5)
+
+Library lists installed dictionaries separately with a Reconstruir action. Importar is on the right content header. Rebuild preserves slug and UUID and publishes a new validated VLF generation by updating the registry in a transaction. The previous generation remains on disk for concurrent readers and recovery; automatic cleanup is not yet implemented. Existing JSON bases without source metadata require selecting a format, file and manifest. CLI: `python3 -m verbum import ~/App/ldoce5.data --format longman --rebuild en-longman-learner-5`.

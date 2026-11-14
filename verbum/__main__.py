@@ -16,6 +16,7 @@ def main(argv=None):
     imp = sub.add_parser("import")
     imp.add_argument("source")
     imp.add_argument("--manifest")
+    imp.add_argument("--rebuild", metavar="DICTIONARY", help="Rebuild an installed dictionary by slug or UUID")
     imp.add_argument("--format", choices=["json", "jsonl", "longman"], default="json")
     imp.add_argument("--authorized", action="store_true", help=argparse.SUPPRESS)  # Legacy compatibility; no attestation required.
     for name in ("list", "search", "catalog"):
@@ -50,7 +51,7 @@ def main(argv=None):
             if args.manifest:
                 with Path(args.manifest).open("rb") as f:
                     metadata = tomllib.load(f)
-            result = import_dictionary(registry, metadata, args.source, args.format)
+            result = import_dictionary(registry, metadata, args.source, args.format, rebuild=args.rebuild)
         elif args.command == "media":
             from .media import entry_media, get_media
             if args.index is None:

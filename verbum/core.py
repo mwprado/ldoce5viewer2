@@ -97,16 +97,24 @@ class Registry:
             raise ValueError("Unknown dictionary: " + identifier)
         return json.loads(row[0]), Path(row[1])
 
-    def import_entries(self, metadata, entries, *, total=None, progress=None, cancel=None):
+    def import_entries(self, metadata, entries, *, total=None, progress=None, cancel=None, rebuild=None):
         check_cancel(cancel)
         m = manifest_info(metadata)
+        previous = None
+        if rebuild:
+            old, previous = self.dictionary(rebuild)
+            if old["slug"] != m["slug"]:
+                raise ValueError("A fonte selecionada não corresponde à edição instalada.")
+            m["id"] = old["id"]
         def report(stage, count):
             if progress:
                 progress(stage, count, total)
         with closing(sqlite3.connect(self.path)) as registry:
-            if registry.execute("SELECT 1 FROM dictionaries WHERE id=? OR slug=?", (m["id"], m["slug"])).fetchone():
+            if not rebuild and registry.execute("SELECT 1 FROM dictionaries WHERE id=? OR slug=?", (m["id"], m["slug"])).fetchone():
                 raise DictionaryAlreadyInstalled("Dicionário já instalado: " + m["title"])
         directory = self.root / "dictionaries" / m["language"] / m["origin"]
+        if rebuild:
+            directory = directory / "generations" / uuid.uuid4().hex
         directory.mkdir(mode=0o700, parents=True, exist_ok=True)
         target = directory / (m["slug"] + ".vlf")
         if target.exists():
@@ -153,8 +161,14 @@ class Registry:
                 check_cancel(cancel)
                 report("publish", count)
                 try:
-                    registry.execute("INSERT INTO dictionaries VALUES (?,?,?,?)",
-                                     (m["id"], m["slug"], str(target), json.dumps(m, ensure_ascii=False)))
+                    if rebuild:
+                        changed = registry.execute("UPDATE dictionaries SET path=?,manifest=? WHERE id=? AND slug=? AND path=?",
+                            (str(target), json.dumps(m, ensure_ascii=False), m["id"], m["slug"], str(previous)))
+                        if changed.rowcount != 1:
+                            raise ValueError("O dicionário foi alterado por outra operação.")
+                    else:
+                        registry.execute("INSERT INTO dictionaries VALUES (?,?,?,?)",
+                                         (m["id"], m["slug"], str(target), json.dumps(m, ensure_ascii=False)))
                 except sqlite3.IntegrityError as exc:
                     raise DictionaryAlreadyInstalled("Dicionário já instalado: " + m["title"]) from exc
                 # Hard link refuses to overwrite an existing dictionary.
@@ -171,6 +185,11 @@ class Registry:
             raise
         finally:
             temp.unlink(missing_ok=True)
+            if rebuild and not published:
+                try:
+                    directory.rmdir()
+                except OSError:
+                    pass
 
     def search(self, query, language=None, origin=None, function=None, limit=50, mode="prefix", dictionary=None):
         if not isinstance(limit, int) or not 1 <= limit <= 1000:

@@ -105,5 +105,21 @@ class VerbumTests(unittest.TestCase):
             self.registry.import_entries(self.meta, should_not_read())
         self.assertEqual(len(self.registry.search("original")), 1)
 
+    def test_rebuild_preserves_identity_and_old_on_failure(self):
+        original = self.registry.import_entries(self.meta, [{"lemma":"old"}])
+        slug = original["slug"]
+        with self.assertRaises(ValueError):
+            self.registry.import_entries(self.meta, [{}], rebuild=slug)
+        self.assertEqual(len(self.registry.search("old")), 1)
+        new = self.registry.import_entries(self.meta, [{"lemma":"new"}], rebuild=slug)
+        self.assertEqual(original["id"], new["id"])
+        self.assertNotEqual(original["path"], new["path"])
+        self.assertEqual(len(self.registry.list()), 1)
+        self.assertEqual(self.registry.search("old"), [])
+        self.assertEqual(len(self.registry.search("new")), 1)
+        self.assertTrue(Path(original["path"]).exists())
+        with self.assertRaises(ValueError):
+            self.registry.import_entries(dict(self.meta, origin="other"), [{"lemma":"bad"}], rebuild=slug)
+
 if __name__ == "__main__":
     unittest.main()

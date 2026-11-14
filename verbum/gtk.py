@@ -82,7 +82,6 @@ class Window(Adw.ApplicationWindow):
         library.connect("clicked", self.show_catalog)
         sidebar_header.pack_start(library)
         self.import_button = button("Importar", self.show_import_dialog)
-        sidebar_header.pack_end(self.import_button)
         filters = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6,
                           margin_start=12, margin_end=12, margin_top=6, margin_bottom=8)
         left.append(filters)
@@ -126,6 +125,7 @@ class Window(Adw.ApplicationWindow):
         header.set_show_start_title_buttons(False)
         self.content_title = Adw.WindowTitle(title="Dicionário")
         header.set_title_widget(self.content_title)
+        header.pack_end(self.import_button)
         right.append(header)
         self.detail = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12,
                               margin_start=24, margin_end=24, margin_top=24, margin_bottom=32)
@@ -341,9 +341,22 @@ class Window(Adw.ApplicationWindow):
         self.reset_detail()
         self.content_title.set_title("Biblioteca")
         self.detail.append(label("Biblioteca de dicionários", "title-1"))
+        installed = Adw.PreferencesGroup(title="Dicionários instalados")
+        self.detail.append(installed)
+        self.rebuild_buttons = []
+        for m in self.registry.list():
+            row = Adw.ActionRow(title=GLib.markup_escape_text(m["title"]), subtitle=m["slug"])
+            control = button("Reconstruir", lambda _, item=m: self.rebuild_dictionary(item))
+            control.set_valign(Gtk.Align.CENTER)
+            control.set_sensitive(not self.importing)
+            self.rebuild_buttons.append(control)
+            row.add_suffix(control)
+            installed.add(row)
         group = Adw.PreferencesGroup(title="Dicionários disponíveis")
         self.detail.append(group)
         for m in catalog_list(self.registry):
+            if m["installed"]:
+                continue
             d = m["distribution"]
             state = "Instalado" if m["installed"] else ("Importável" if d.get("importer") in {fmt["id"] for fmt in IMPORT_FORMATS} else "Planejado")
             row = Adw.ActionRow(title=GLib.markup_escape_text(m["title"]), subtitle=f'{m["language"]} · {m["origin"]} · {m["function"]}')
@@ -353,7 +366,7 @@ class Window(Adw.ApplicationWindow):
             group.add(row)
         self.detail.append(label("As fontes web e os demais importadores ainda não estão ativos."))
 
-    def show_import_dialog(self, *_):
+    def show_import_dialog(self, *_, rebuild=None):
         if self.importing:
             return
         if getattr(self, "import_dialog", None):
@@ -387,15 +400,32 @@ class Window(Adw.ApplicationWindow):
             fmt = IMPORT_FORMATS[self.import_format.get_selected()]
             self.import_dialog = None
             if choice == "next":
-                self.choose_source(fmt)
+                self.choose_source(fmt, rebuild)
         dialog.connect("response", response)
         dialog.present()
 
-    def choose_source(self, fmt):
+    def rebuild_dictionary(self, m):
+        if self.importing:
+            return
+        fmt_id = "longman" if m.get("source_format") == "idm-skn" else m.get("source_format")
+        fmt = next((v for v in IMPORT_FORMATS if v["id"] == fmt_id), None)
+        if fmt is None:
+            fmt = next((v for v in IMPORT_FORMATS if v["id"] == m.get("distribution", {}).get("importer")), None)
+        if fmt is None:
+            # Older JSON bases did not record the input format; choose it explicitly.
+            self.show_import_dialog(rebuild=m["slug"])
+            return
+        path = m.get("source_path")
+        if path and Path(path).exists():
+            self.confirm_import(fmt, path, rebuild=m["slug"], metadata=m if fmt["manifest"] else None)
+        else:
+            self.choose_source(fmt, rebuild=m["slug"])
+
+    def choose_source(self, fmt, rebuild=None):
         action = Gtk.FileChooserAction.SELECT_FOLDER if fmt["directory"] else Gtk.FileChooserAction.OPEN
         self.choose_file("Selecione a fonte — " + fmt["title"], action,
-                         lambda path: self.choose_manifest(fmt, path) if fmt["manifest"]
-                         else self.confirm_import(fmt, path))
+                         lambda path: self.choose_manifest(fmt, path, rebuild) if fmt["manifest"]
+                         else self.confirm_import(fmt, path, rebuild=rebuild))
 
     def choose_file(self, title, action, callback):
         chooser = Gtk.FileChooserNative(title=title, transient_for=self, action=action,
@@ -411,20 +441,28 @@ class Window(Adw.ApplicationWindow):
         chooser.connect("response", response)
         chooser.show()
 
-    def choose_manifest(self, fmt, path):
+    def choose_manifest(self, fmt, path, rebuild=None):
         self.choose_file("Selecione o manifesto TOML", Gtk.FileChooserAction.OPEN,
-                         lambda manifest: self.confirm_import(fmt, path, manifest))
+                         lambda manifest: self.confirm_import(fmt, path, manifest, rebuild=rebuild))
 
-    def confirm_import(self, fmt, path, manifest=None):
-        dialog = Adw.MessageDialog(transient_for=self, heading="Confirmar importação",
-            body=fmt["title"] + "\n" + path +
-            "\n\nImportar esta fonte para a biblioteca do Verbum? Os arquivos originais permanecerão inalterados.")
+    def confirm_import(self, fmt, path, manifest=None, *, rebuild=None, metadata=None):
+        heading = "Reconstruir dicionário?" if rebuild else "Confirmar importação"
+        message = ("A base instalada será substituída após a validação da nova. Os arquivos originais permanecerão inalterados."
+                   if rebuild else "Importar esta fonte para a biblioteca do Verbum? Os arquivos originais permanecerão inalterados.")
+        dialog = Adw.MessageDialog(transient_for=self, heading=heading,
+            body=fmt["title"] + "\n" + path + "\n\n" + message)
         dialog.add_response("cancel", "Cancelar")
-        dialog.add_response("import", "Importar")
+        dialog.add_response("import", "Reconstruir" if rebuild else "Importar")
+        if rebuild:
+            dialog.add_response("source", "Escolher outra fonte")
         dialog.set_default_response("cancel")
         dialog.set_close_response("cancel")
-        dialog.connect("response", lambda _, response: self.start_import(fmt, path, manifest)
-                       if response == "import" else None)
+        def response(_, choice):
+            if choice == "import":
+                self.start_import(fmt, path, manifest, rebuild=rebuild, metadata=metadata)
+            elif choice == "source":
+                self.choose_source(fmt, rebuild=rebuild)
+        dialog.connect("response", response)
         dialog.present()
 
     def cancel_import(self, *_):
@@ -455,7 +493,7 @@ class Window(Adw.ApplicationWindow):
             self.import_status.set_text(messages.get(stage, "Importando…"))
         return GLib.SOURCE_CONTINUE
 
-    def start_import(self, fmt, path, manifest=None):
+    def start_import(self, fmt, path, manifest=None, *, rebuild=None, metadata=None):
         if self.importing:
             return
         self.importing = True
@@ -463,7 +501,9 @@ class Window(Adw.ApplicationWindow):
         self.import_stage = ("prepare", 0, None)
         self.import_button.set_sensitive(False)
         self.cancel_import_button.set_sensitive(True)
-        self.import_title.set_text("Importando " + fmt["title"])
+        for control in getattr(self, "rebuild_buttons", []):
+            control.set_sensitive(False)
+        self.import_title.set_text(("Reconstruindo " if rebuild else "Importando ") + fmt["title"])
         self.import_progress.set_fraction(0)
         self.import_status.set_text("Lendo arquivos da fonte…")
         self.import_panel.set_visible(True)
@@ -475,6 +515,8 @@ class Window(Adw.ApplicationWindow):
                 self.import_timer = 0
             self.import_panel.set_visible(False)
             self.import_button.set_sensitive(True)
+            for control in getattr(self, "rebuild_buttons", []):
+                control.set_sensitive(True)
             if isinstance(error, ImportCancelled):
                 self.toast_overlay.add_toast(Adw.Toast.new("Importação cancelada"))
             elif isinstance(error, DictionaryAlreadyInstalled):
@@ -489,17 +531,21 @@ class Window(Adw.ApplicationWindow):
                 dialog.present()
             else:
                 self.refresh_dictionaries()
-                self.toast_overlay.add_toast(Adw.Toast.new(f'Dicionário importado: {result["entries"]:n} verbetes'))
+                if rebuild:
+                    self.generation += 1
+                    clear(self.results)
+                    self.show_catalog()
+                self.toast_overlay.add_toast(Adw.Toast.new(f'Dicionário {"reconstruído" if rebuild else "importado"}: {result["entries"]:n} verbetes'))
         def report(stage, count, total):
             # Immutable snapshot; the GTK main thread alone updates widgets.
             self.import_stage = (stage, count, total)
         def run():
-            metadata = None
+            selected_metadata = metadata
             if manifest:
                 with Path(manifest).open("rb") as stream:
-                    metadata = tomllib.load(stream)
-            return import_dictionary(self.registry, metadata, path, fmt["id"],
-                                     progress=report, cancel=self.import_cancel)
+                    selected_metadata = tomllib.load(stream)
+            return import_dictionary(self.registry, selected_metadata, path, fmt["id"],
+                                     progress=report, cancel=self.import_cancel, rebuild=rebuild)
         self.work(run, complete)
 
     def on_close(self, *_):

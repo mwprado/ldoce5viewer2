@@ -22,6 +22,8 @@ class GtkTests(unittest.TestCase):
             win.show_catalog()
             self.assertEqual(win.detail.get_first_child().get_text(), "Biblioteca de dicionários")
             self.assertEqual(win.import_button.get_label(), "Importar")
+            self.assertEqual(len(win.rebuild_buttons), 1)
+            self.assertEqual(win.rebuild_buttons[0].get_label(), "Reconstruir")
             win.show_import_dialog()
             self.assertEqual(win.import_format.get_model().get_n_items(), 3)
             win.import_format.set_selected(1)
