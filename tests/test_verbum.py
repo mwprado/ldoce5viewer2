@@ -39,5 +39,28 @@ class VerbumTests(unittest.TestCase):
         self.assertEqual(len(self.registry.list()), 2)
         self.assertEqual(len(self.registry.search("water", language="en")), 1)
 
+    def test_catalog(self):
+        from verbum.catalog import catalog_list
+        rows = catalog_list(self.registry, origin="longman")
+        self.assertEqual(len(rows), 1)
+        self.assertFalse(rows[0]["installed"])
+        self.assertTrue(rows[0]["distribution"]["requires_original"])
+        self.assertFalse(rows[0]["distribution"]["redistributable"])
+        self.assertEqual(rows[0]["id"], catalog_list(self.registry, origin="longman")[0]["id"])
+
+    def test_distribution_policy(self):
+        from verbum.catalog import distribution_info
+        with self.assertRaises(ValueError):
+            distribution_info(dict(license_type="proprietary", distribution={"method":"download", "redistributable":True}))
+        with self.assertRaises(ValueError):
+            distribution_info(dict(license_type="open", distribution={"method":"download", "redistributable":True}))
+        policy = distribution_info(dict(license_type="public-domain", license_reference="synthetic test", distribution={"method":"download", "redistributable":True, "url":"https://example.org/test.vlf", "sha256":"a"*64}))
+        self.assertEqual(policy["method"], "download")
+
+    def test_proprietary_json_rejected(self):
+        from verbum.importers import import_dictionary
+        with self.assertRaises(ValueError):
+            import_dictionary(self.registry, dict(self.meta, license_type="proprietary"), "unused.json")
+
 if __name__ == "__main__":
     unittest.main()

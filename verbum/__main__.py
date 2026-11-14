@@ -6,6 +6,7 @@ import sqlite3
 import tomllib
 from pathlib import Path
 from .core import Registry
+from .catalog import catalog_list
 from .importers import import_dictionary
 
 def main(argv=None):
@@ -17,10 +18,13 @@ def main(argv=None):
     imp.add_argument("--manifest", required=True)
     imp.add_argument("--format", choices=["json", "jsonl"], default="json")
     imp.add_argument("--authorized", action="store_true", help="Confirm authorization to import this source")
-    for name in ("list", "search"):
+    for name in ("list", "search", "catalog"):
         p = sub.add_parser(name)
         for key in ("language", "origin", "function"):
             p.add_argument("--" + key)
+        if name == "catalog":
+            p.add_argument("--catalog-file")
+            p.add_argument("--method", choices=["import", "download", "web"])
         if name == "search":
             p.add_argument("query")
             p.add_argument("--mode", choices=["prefix", "exact", "fulltext"], default="prefix")
@@ -36,7 +40,12 @@ def main(argv=None):
             result = import_dictionary(registry, metadata, args.source, args.format)
         else:
             filters = {key: getattr(args, key) for key in ("language", "origin", "function")}
-            result = registry.list(**filters) if args.command == "list" else registry.search(args.query, **filters, mode=args.mode, limit=args.limit)
+            if args.command == "catalog":
+                result = catalog_list(registry, path=args.catalog_file, method=args.method, **filters)
+            elif args.command == "list":
+                result = registry.list(**filters)
+            else:
+                result = registry.search(args.query, **filters, mode=args.mode, limit=args.limit)
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
     except (ValueError, OSError, sqlite3.Error) as exc:

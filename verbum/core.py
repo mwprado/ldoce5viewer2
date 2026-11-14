@@ -8,6 +8,7 @@ import unicodedata
 import uuid
 from contextlib import closing
 from pathlib import Path
+from .catalog import distribution_info
 
 SCHEMA = """
 PRAGMA user_version=1;
@@ -34,7 +35,7 @@ def token(value):
         raise ValueError("Invalid identifier: %r" % value)
     return value
 
-def manifest_info(m):
+def manifest_info(m, *, catalog=False):
     m = dict(m)
     for key in ("title", "origin", "language", "function", "license"):
         if not isinstance(m.get(key), str) or not m[key].strip():
@@ -45,11 +46,14 @@ def manifest_info(m):
     if m.get("edition"):
         parts.append(token(str(m["edition"])))
     m["slug"] = "-".join(parts)
-    m["id"] = str(uuid.UUID(m["id"])) if m.get("id") else str(uuid.uuid4())
+    m["id"] = str(uuid.UUID(m["id"])) if m.get("id") else str(uuid.uuid5(uuid.NAMESPACE_URL, "verbum:catalog:" + m["slug"])) if catalog else str(uuid.uuid4())
     m["access"] = m.get("access", "local")
-    if m["access"] != "local":
+    m["distribution"] = distribution_info(m)
+    if not catalog and m["access"] != "local":
         raise ValueError("VLF v1 imports local sources only")
     m["format_version"] = 1
+    if not catalog and m["distribution"]["method"] == "web":
+        raise ValueError("Web sources cannot be imported as VLF")
     return m
 
 def default_root():

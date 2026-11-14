@@ -1,0 +1,81 @@
+# Descriptions only. No dictionary contents or download claims.
+version = 1
+
+[[dictionaries]]
+title = "Longman Dictionary of Contemporary English"
+language = "en"
+origin = "longman"
+function = "learner"
+edition = "5"
+license = "proprietary"
+license_type = "proprietary"
+access = "local"
+functions = ["general", "learner"]
+[dictionaries.distribution]
+method = "import"
+importer = "longman"
+requires_original = true
+
+[[dictionaries]]
+title = "Aurélio"
+language = "pt-br"
+origin = "aurelio"
+function = "general"
+license = "proprietary"
+license_type = "proprietary"
+access = "local"
+[dictionaries.distribution]
+method = "import"
+importer = "aurelio"
+requires_original = true
+
+[[dictionaries]]
+title = "Michaelis — multilíngue"
+language = "mul"
+origin = "michaelis"
+function = "general"
+license = "proprietary"
+license_type = "proprietary"
+access = "local"
+[dictionaries.distribution]
+method = "import"
+importer = "michaelis"
+requires_original = true
+
+[[dictionaries]]
+title = "Houaiss"
+language = "pt-br"
+origin = "houaiss"
+function = "general"
+license = "proprietary"
+license_type = "proprietary"
+access = "local"
+[dictionaries.distribution]
+method = "import"
+importer = "houaiss"
+requires_original = true
+
+[[dictionaries]]
+title = "VOLP"
+language = "pt-br"
+origin = "abl"
+function = "orthographic"
+license = "unverified"
+license_type = "unspecified"
+access = "local"
+[dictionaries.distribution]
+method = "import"
+importer = "volp"
+requires_original = true
+
+[[dictionaries]]
+title = "Wiktionary"
+language = "mul"
+origin = "wiktionary"
+function = "general"
+license = "See source terms"
+license_type = "unspecified"
+access = "web"
+[dictionaries.distribution]
+method = "web"
+url = "https://www.wiktionary.org/"

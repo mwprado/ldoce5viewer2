@@ -1,4 +1,4 @@
-# Verbum 0.1.0 — Projeto Cangaço
+# Verbum 0.1.1 — Projeto Cangaço
 
 Verbum replaces the provisional DictViewer name on this development branch.
 The existing Longman application remains unchanged.
@@ -44,3 +44,11 @@ Importers must consume the original files supplied by the user (installation dir
 Native Longman IDM/SKN importer first, followed by native VOLP and other verified source formats; optional trusted PKLZ compatibility; structured sense/media schema; GTK4/libadwaita and WebKitGTK; Gio D-Bus query/import interfaces; GNOME Shell SearchProvider2; LibreOffice UNO; RPM packaging. No proprietary content or indices are distributed. Import only authorized sources.
 
 Proposed application ID: io.github.mwprado.Verbum.
+
+## Distribution catalog (0.1.1)
+
+    python3 -m verbum catalog
+    python3 -m verbum catalog --method import
+    python3 -m verbum catalog --origin longman
+
+The bundled catalog is metadata only, separate from installed dictionaries. An external TOML catalog can be supplied with --catalog-file. Access (local/web/hybrid) and distribution (import/download/web) are distinct. Redistribution defaults to false; downloads require explicit open/public-domain status, a license reference, HTTPS URL and SHA-256. These declarations still require human license verification. Proprietary JSON imports are rejected; native importers are not yet available. Download installation and remote lookup are not implemented. The catalog's listed sources are descriptions, not a promise of availability.
