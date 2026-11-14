@@ -196,15 +196,23 @@ class Window(Adw.ApplicationWindow):
             if error:
                 self.status.set_text(str(error))
                 return
-            for hit, display in zip(hits, result_labels(hits)):
+            for hit, (lemma, pos) in zip(hits, result_labels(hits)):
                 row = Gtk.ListBoxRow()
                 row.hit = hit
-                word = Gtk.Label(label=display, xalign=0, margin_start=10,
-                                 margin_end=10, margin_top=8, margin_bottom=8)
+                box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6,
+                              margin_start=10, margin_end=10, margin_top=8, margin_bottom=8)
+                word = Gtk.Label(label=lemma, xalign=0)
                 word.set_ellipsize(Pango.EllipsizeMode.END)
+                box.append(word)
+                if pos:
+                    grammar = Gtk.Label(xalign=0)
+                    grammar.set_markup("<i>(" + GLib.markup_escape_text(pos) + ")</i>")
+                    grammar.add_css_class("dim-label")
+                    grammar.set_ellipsize(Pango.EllipsizeMode.END)
+                    box.append(grammar)
                 source = next((m["title"] for m in self.manifests if m["slug"] == hit["dictionary"]), hit["dictionary"])
-                row.set_tooltip_text(display + "\n" + source)
-                row.set_child(word)
+                row.set_tooltip_text(lemma + (" (" + pos + ")" if pos else "") + "\n" + source)
+                row.set_child(box)
                 self.results.append(row)
             self.status.set_text(f"{len(hits)} resultado(s), máximo 100.")
             if hits:

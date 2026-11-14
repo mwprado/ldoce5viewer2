@@ -1,4 +1,4 @@
-# Verbum 0.3.7 — Projeto Cangaço
+# Verbum 0.3.8 — Projeto Cangaço
 
 Verbum replaces the provisional DictViewer name on this development branch.
 The existing Longman application remains unchanged.
@@ -112,3 +112,7 @@ Headword pronunciation controls appear near the lemma; example audio controls ap
 ## Compact search results (0.3.7)
 
 One line per entry: lemma, original homograph number when available, grammatical class, and a local disambiguation index only for identical visible labels. Dictionary title is in the entry panel and row tooltip rather than a repeated subtitle. Entries and senses are not merged; existing VLF bases remain compatible.
+
+## Minimal result labels (0.3.8)
+
+The sidebar shows only the lemma and grammatical class in muted italic text. Homograph and auxiliary indices are hidden; distinct entries are retained. The dictionary remains visible in the tooltip and detail panel. No database rebuild is required.
