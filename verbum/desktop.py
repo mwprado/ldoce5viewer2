@@ -26,6 +26,15 @@ def install_desktop(default_bgl=False):
         if not shutil.which(command):
             raise ValueError("Comando necessário não encontrado: " + command)
     source = root / "data"
+    if not (source/(APP_ID+".desktop")).is_file():
+        # RPM installation already supplies the desktop entry and MIME definition.
+        installed = Path("/usr/share/applications")/(APP_ID+".desktop")
+        if not installed.is_file():
+            raise ValueError("Arquivos de integração não encontrados.")
+        if default_bgl:
+            subprocess.run(["xdg-mime", "default", APP_ID+".desktop", MIME], check=True)
+        print("Verbum já registrado pelo pacote do sistema.")
+        return
     desktop = (source/(APP_ID+".desktop")).read_text(encoding="utf-8")
     command = " ".join([desktop_quote(sys.executable), "-m", "verbum", "gui", "--", "%F"])
     # Path is a Desktop Entry string, not an Exec argument.

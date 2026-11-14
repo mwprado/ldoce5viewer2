@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.mwprado.Verbum</id>
+  <name>Verbum</name>
+  <summary>Multilingual dictionary and lexical service</summary>
+  <summary xml:lang="pt_BR">Dicionário multilíngue e serviço lexical</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <description>
+    <p>Verbum is a native GNOME dictionary application with a local lexical database, ranked search, spelling suggestions and contextual pronunciation audio.</p>
+    <p>Import your own dictionary sources into Verbum Lexical Format. Dictionary contents are not bundled.</p>
+  </description>
+  <launchable type="desktop-id">io.github.mwprado.Verbum.desktop</launchable>
+  <url type="homepage">https://github.com/mwprado/verbum</url>
+  <url type="bugtracker">https://github.com/mwprado/verbum/issues</url>
+  <provides><mediatype>application/x-babylon-bgl</mediatype></provides>
+  <developer id="io.github.mwprado"><name>Verbum</name></developer>
+  <releases><release version="0.4.3" date="2026-11-14"/></releases>
+  <content_rating type="oars-1.1"/>
+</component>

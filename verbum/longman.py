@@ -13,7 +13,7 @@ def metadata(source):
 
 def _reader():
     try:
-        from ldoce5viewer.ldoce5 import idmreader
+        from . import idmreader
         from lxml import etree
     except ImportError as exc:
         raise ValueError("Longman requires the existing LDOCE5 reader and python3-lxml") from exc

@@ -321,9 +321,9 @@ class Window(Adw.ApplicationWindow):
     def show_about(self, *_):
         from . import __version__
         dialog = Adw.AboutWindow(transient_for=self, application_name="Verbum",
-                                 application_icon="accessories-dictionary-symbolic",
+                                 application_icon=APP_ID,
                                  version=__version__, developer_name="Verbum",
-                                 website="https://github.com/mwprado/ldoce5viewer2")
+                                 website="https://github.com/mwprado/verbum")
         dialog.present()
 
     def work(self, fn, done):

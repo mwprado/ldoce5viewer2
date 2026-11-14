@@ -136,3 +136,7 @@ Optional PyGlossary 5.x dependency (`python3 -m pip install 'pyglossary>=5,<6'` 
 ## Desktop integration (0.4.2)
 
 From the checkout, with the intended Python environment activated, run `python -m verbum install-desktop --default-bgl`. Requires shared-mime-info, desktop-file-utils and xdg-utils. The command installs the per-user desktop launcher, MIME definition and vector icon; default association is opt-in. Double-clicking a local BGL opens a confirmation dialog; cancel leaves the source and library unchanged. Run `python -m verbum gui /path/file.bgl` to test without desktop integration. The SVG is a simplified vector interpretation of the calligraphic icon.
+
+## RPM packaging (0.4.3)
+
+Independent `package/verbum.spec`, targeting Fedora and EPEL 10 with Python >=3.11. It installs only Verbum, including the isolated GPL Longman IDM reader, launcher, icon, MIME and AppStream metadata. No Qt packages or dictionary data are included. PyGlossary 5.x is recommended, not required, until a suitable RPM is available. The source is pinned to tag `verbum-0.4.3`; before repository rename use `--define 'upstream_repo ldoce5viewer2'`. No default MIME association is changed by RPM installation. EPEL 9 default Python 3.9 is unsupported.
