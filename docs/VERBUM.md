@@ -74,9 +74,9 @@ Indices are zero-based. For an image use --fullsize when available. The command 
 
 ## Native GTK interface (0.3.0)
 
-On Fedora, install the system Python bindings and GTK media backend:
+On Fedora, install the system Python bindings, GTK4 (which includes its media backend on Fedora 45), and GStreamer plugins:
 
-    sudo dnf install python3-gobject gtk4 libadwaita python3-lxml gtk4-media-gstreamer
+    sudo dnf install python3-gobject gtk4 libadwaita python3-lxml gstreamer1 gstreamer1-plugins-base gstreamer1-plugins-good
     python3 -m verbum gui
 
 The GUI supports incremental/exact/fulltext search, installed-dictionary selection, structured entry display, native Longman import with explicit authorization, and on-demand audio and image playback/display. Audio uses Gtk.MediaFile and Gtk.MediaControls; codec availability depends on the GStreamer installation. Temporary audio files are private and removed when replaced or on normal exit. No network requests or WebKit rendering in this version. Use the existing original Longman directory for media. The catalog shows unimplemented providers as planned.
