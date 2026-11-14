@@ -62,5 +62,21 @@ class VerbumTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             import_dictionary(self.registry, dict(self.meta, license_type="proprietary"), "unused.json")
 
+    def test_cli_import_without_attestation(self):
+        import contextlib
+        import io
+        from verbum.__main__ import main
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "entries.json").write_text('[{"lemma":"sample"}]', encoding="utf-8")
+            (root / "manifest.toml").write_text(
+                'title="Demo"\nlanguage="en"\norigin="demo"\nfunction="general"\nlicense="CC0"\n',
+                encoding="utf-8")
+            with contextlib.redirect_stdout(io.StringIO()):
+                code = main(["--root", str(root / "data"), "import",
+                             str(root / "entries.json"), "--manifest", str(root / "manifest.toml")])
+            self.assertEqual(code, 0)
+            self.assertEqual(len(Registry(root / "data").list()), 1)
+
 if __name__ == "__main__":
     unittest.main()

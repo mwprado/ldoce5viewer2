@@ -17,7 +17,7 @@ def main(argv=None):
     imp.add_argument("source")
     imp.add_argument("--manifest")
     imp.add_argument("--format", choices=["json", "jsonl", "longman"], default="json")
-    imp.add_argument("--authorized", action="store_true", help="Confirm authorization to import this source")
+    imp.add_argument("--authorized", action="store_true", help=argparse.SUPPRESS)  # Legacy compatibility; no attestation required.
     for name in ("list", "search", "catalog"):
         p = sub.add_parser(name)
         for key in ("language", "origin", "function"):
@@ -46,8 +46,6 @@ def main(argv=None):
             return gui_main(args.root)
         registry = Registry(args.root)
         if args.command == "import":
-            if not args.authorized:
-                parser.error("Import requires --authorized")
             metadata = None
             if args.manifest:
                 with Path(args.manifest).open("rb") as f:

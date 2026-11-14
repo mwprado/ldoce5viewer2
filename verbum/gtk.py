@@ -345,7 +345,7 @@ class Window(Adw.ApplicationWindow):
     def confirm_import(self, fmt, path, manifest=None):
         dialog = Adw.MessageDialog(transient_for=self, heading="Confirmar importação",
             body=fmt["title"] + "\n" + path +
-            "\n\nConfirme que possui autorização para importar e utilizar estes dados localmente.")
+            "\n\nImportar esta fonte para a biblioteca do Verbum? Os arquivos originais permanecerão inalterados.")
         dialog.add_response("cancel", "Cancelar")
         dialog.add_response("import", "Importar")
         dialog.set_default_response("cancel")

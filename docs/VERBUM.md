@@ -1,4 +1,4 @@
-# Verbum 0.3.1 — Projeto Cangaço
+# Verbum 0.3.2 — Projeto Cangaço
 
 Verbum replaces the provisional DictViewer name on this development branch.
 The existing Longman application remains unchanged.
@@ -28,7 +28,7 @@ Create entries.json with synthetic entries:
 
 Run:
 
-    python3 -m verbum import entries.json --manifest manifest.toml --authorized
+    python3 -m verbum import entries.json --manifest manifest.toml
     python3 -m verbum list --language pt-br
     python3 -m verbum search teste --mode exact
     python3 -m verbum search demonstração --mode fulltext
@@ -37,11 +37,11 @@ Default data directory: XDG_DATA_HOME/verbum or ~/.local/share/verbum. Use --roo
 
 ## Native-source import policy
 
-Importers must consume the original files supplied by the user (installation directories, native archives, publisher files, or original documents). VLF is the canonical output; PKLZ is an optional compatibility input, never a prerequisite. Preserve original spelling, source identifiers, edition, provenance and licensing. Detect source formats by their structure, not filenames alone. Keep the original source unchanged. For proprietary sources, require authorization and do not distribute extracted data or indices. JSON/JSONL remains supported for open structured sources and synthetic tests.
+Importers must consume the original files supplied by the user (installation directories, native archives, publisher files, or original documents). VLF is the canonical output; PKLZ is an optional compatibility input, never a prerequisite. Preserve original spelling, source identifiers, edition, provenance and licensing. Detect source formats by their structure, not filenames alone. Keep the original source unchanged. For proprietary sources, do not distribute extracted data or indices. The application performs technical validation, not legal eligibility checks. JSON/JSONL remains supported for open structured sources and synthetic tests.
 
 ## Next milestones
 
-Native VOLP and other verified source formats; optional trusted PKLZ compatibility; structured sense/media schema; GTK4/libadwaita and WebKitGTK; Gio D-Bus query/import interfaces; GNOME Shell SearchProvider2; LibreOffice UNO; RPM packaging. No proprietary content or indices are distributed. Import only authorized sources.
+Native VOLP and other verified source formats; optional trusted PKLZ compatibility; structured sense/media schema; GTK4/libadwaita and WebKitGTK; Gio D-Bus query/import interfaces; GNOME Shell SearchProvider2; LibreOffice UNO; RPM packaging. No proprietary content or indices are distributed. Users remain responsible for compliance with applicable source licenses.
 
 Proposed application ID: io.github.mwprado.Verbum.
 
@@ -57,7 +57,7 @@ The bundled catalog is metadata only, separate from installed dictionaries. An e
 
 On Fedora install python3-lxml if needed. The existing LDOCE5 reader is reused without Qt.
 
-    python3 -m verbum import ~/App/ldoce5.data --format longman --authorized
+    python3 -m verbum import ~/App/ldoce5.data --format longman
     python3 -m verbum search water --origin longman --mode exact
     python3 -m unittest discover -s tests -p 'test_verbum*.py' -v
 
@@ -79,7 +79,7 @@ On Fedora, install the system Python bindings, GTK4 (which includes its media ba
     sudo dnf install python3-gobject gtk4 libadwaita python3-lxml gstreamer1 gstreamer1-plugins-base gstreamer1-plugins-good
     python3 -m verbum gui
 
-The GUI supports incremental/exact/fulltext search, installed-dictionary selection, structured entry display, native Longman import with explicit authorization, and on-demand audio and image playback/display. Audio uses Gtk.MediaFile and Gtk.MediaControls; codec availability depends on the GStreamer installation. Temporary audio files are private and removed when replaced or on normal exit. No network requests or WebKit rendering in this version. Use the existing original Longman directory for media. The catalog shows unimplemented providers as planned.
+The GUI supports incremental/exact/fulltext search, installed-dictionary selection, structured entry display, native Longman import with operational confirmation, and on-demand audio and image playback/display. Audio uses Gtk.MediaFile and Gtk.MediaControls; codec availability depends on the GStreamer installation. Temporary audio files are private and removed when replaced or on normal exit. No network requests or WebKit rendering in this version. Use the existing original Longman directory for media. The catalog shows unimplemented providers as planned.
 
 GUI smoke test under Xvfb (system Python with GI installed):
 
@@ -87,4 +87,8 @@ GUI smoke test under Xvfb (system Python with GI installed):
 
 ## Generic import dialog (0.3.1)
 
-The header button is now Importar. Choose a supported format in the dialog: Longman (original directory), JSON, or JSON Lines (file plus TOML manifest). Other catalog importers are shown as in development, not selectable. All paths use the same import service and explicit authorization confirmation.
+The header button is now Importar. Choose a supported format in the dialog: Longman (original directory), JSON, or JSON Lines (file plus TOML manifest). Other catalog importers are shown as in development, not selectable. All paths use the same import service and operational import confirmation.
+
+## Import confirmation (0.3.2)
+
+The graphical dialog confirms only the import operation and its source. It does not ask the user to attest to authorization to use the dictionary. CLI import requires no authorization flag; the old flag remains accepted for compatibility but has no effect. Distribution restrictions and technical source validation are unchanged.
