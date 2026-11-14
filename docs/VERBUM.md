@@ -1,4 +1,4 @@
-# Verbum 0.3.0 — Projeto Cangaço
+# Verbum 0.3.1 — Projeto Cangaço
 
 Verbum replaces the provisional DictViewer name on this development branch.
 The existing Longman application remains unchanged.
@@ -84,3 +84,7 @@ The GUI supports incremental/exact/fulltext search, installed-dictionary selecti
 GUI smoke test under Xvfb (system Python with GI installed):
 
     VERBUM_GTK_TEST=1 xvfb-run -a /usr/bin/python3 -m unittest discover -s tests -p test_verbum_gtk.py -v
+
+## Generic import dialog (0.3.1)
+
+The header button is now Importar. Choose a supported format in the dialog: Longman (original directory), JSON, or JSON Lines (file plus TOML manifest). Other catalog importers are shown as in development, not selectable. All paths use the same import service and explicit authorization confirmation.

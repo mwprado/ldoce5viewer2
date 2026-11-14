@@ -1,6 +1,7 @@
 """Native GTK4/libadwaita frontend for Verbum."""
 import concurrent.futures
 import tempfile
+import tomllib
 from pathlib import Path
 
 import gi
@@ -11,7 +12,7 @@ from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 
 from .core import Registry
 from .catalog import catalog_list
-from .importers import import_dictionary
+from .importers import IMPORT_FORMATS, import_dictionary
 from .media import get_media
 
 APP_ID = "io.github.mwprado.Verbum"
@@ -63,7 +64,7 @@ class Window(Adw.ApplicationWindow):
         header = Adw.HeaderBar()
         header.set_title_widget(Adw.WindowTitle(title="Verbum", subtitle="Projeto Cangaço"))
         header.pack_start(button("Biblioteca", self.show_catalog))
-        self.import_button = button("Importar Longman", self.choose_source)
+        self.import_button = button("Importar", self.show_import_dialog)
         header.pack_end(self.import_button)
         outer.append(header)
         self.status = label("Consulte os dicionários locais.")
@@ -280,35 +281,85 @@ class Window(Adw.ApplicationWindow):
         for m in catalog_list(self.registry):
             self.detail.append(label(m["title"], "heading"))
             d = m["distribution"]
-            state = "Instalado" if m["installed"] else ("Importável" if d.get("importer") == "longman" else "Planejado")
+            state = "Instalado" if m["installed"] else ("Importável" if d.get("importer") in {fmt["id"] for fmt in IMPORT_FORMATS} else "Planejado")
             self.detail.append(label(f'{m["language"]} · {m["origin"]} · {m["function"]} · {state}', "dim-label"))
         self.detail.append(label("As fontes web e os demais importadores ainda não estão ativos."))
 
-    def choose_source(self, *_):
-        chooser = Gtk.FileChooserNative(title="Selecione o diretório original do Longman", transient_for=self, action=Gtk.FileChooserAction.SELECT_FOLDER, accept_label="Selecionar", cancel_label="Cancelar")
+    def show_import_dialog(self, *_):
+        if self.importing:
+            return
+        if getattr(self, "import_dialog", None):
+            self.import_dialog.present()
+            return
+        dialog = Adw.MessageDialog(transient_for=self, heading="Importar dicionário",
+            body="Selecione o formato da fonte que deseja importar.")
+        self.import_dialog = dialog
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        self.import_format = Gtk.DropDown.new_from_strings([fmt["title"] for fmt in IMPORT_FORMATS])
+        box.append(self.import_format)
+        self.import_description = label(IMPORT_FORMATS[0]["description"], "dim-label")
+        box.append(self.import_description)
+        self.import_format.connect("notify::selected", lambda *_:
+            self.import_description.set_text(IMPORT_FORMATS[self.import_format.get_selected()]["description"]))
+        pending = [m["title"] for m in catalog_list(self.registry, method="import")
+                   if m["distribution"].get("importer") not in {fmt["id"] for fmt in IMPORT_FORMATS}]
+        if pending:
+            box.append(label("Importadores em desenvolvimento: " + ", ".join(pending), "caption"))
+        dialog.set_extra_child(box)
+        dialog.add_response("cancel", "Cancelar")
+        dialog.add_response("next", "Continuar")
+        dialog.set_default_response("next")
+        dialog.set_close_response("cancel")
+        def response(_, choice):
+            fmt = IMPORT_FORMATS[self.import_format.get_selected()]
+            self.import_dialog = None
+            if choice == "next":
+                self.choose_source(fmt)
+        dialog.connect("response", response)
+        dialog.present()
+
+    def choose_source(self, fmt):
+        action = Gtk.FileChooserAction.SELECT_FOLDER if fmt["directory"] else Gtk.FileChooserAction.OPEN
+        self.choose_file("Selecione a fonte — " + fmt["title"], action,
+                         lambda path: self.choose_manifest(fmt, path) if fmt["manifest"]
+                         else self.confirm_import(fmt, path))
+
+    def choose_file(self, title, action, callback):
+        chooser = Gtk.FileChooserNative(title=title, transient_for=self, action=action,
+                                        accept_label="Selecionar", cancel_label="Cancelar")
+        self.source_chooser = chooser
         def response(dialog, code):
             file = dialog.get_file() if code == Gtk.ResponseType.ACCEPT else None
+            path = file.get_path() if file else None
             dialog.destroy()
-            if file and file.get_path():
-                self.confirm_import(file.get_path())
+            self.source_chooser = None
+            if path:
+                callback(path)
         chooser.connect("response", response)
         chooser.show()
 
-    def confirm_import(self, path):
-        dialog = Adw.MessageDialog(transient_for=self, heading="Importar Longman?", body="Confirme que possui autorização para importar e utilizar estes arquivos originais localmente.")
+    def choose_manifest(self, fmt, path):
+        self.choose_file("Selecione o manifesto TOML", Gtk.FileChooserAction.OPEN,
+                         lambda manifest: self.confirm_import(fmt, path, manifest))
+
+    def confirm_import(self, fmt, path, manifest=None):
+        dialog = Adw.MessageDialog(transient_for=self, heading="Confirmar importação",
+            body=fmt["title"] + "\n" + path +
+            "\n\nConfirme que possui autorização para importar e utilizar estes dados localmente.")
         dialog.add_response("cancel", "Cancelar")
-        dialog.add_response("import", "Confirmo e autorizo")
+        dialog.add_response("import", "Importar")
         dialog.set_default_response("cancel")
         dialog.set_close_response("cancel")
-        dialog.connect("response", lambda _, response: self.start_import(path) if response == "import" else None)
+        dialog.connect("response", lambda _, response: self.start_import(fmt, path, manifest)
+                       if response == "import" else None)
         dialog.present()
 
-    def start_import(self, path):
+    def start_import(self, fmt, path, manifest=None):
         if self.importing:
             return
         self.importing = True
         self.import_button.set_sensitive(False)
-        self.status.set_text("Importando e indexando Longman…")
+        self.status.set_text("Importando e indexando " + fmt["title"] + "…")
         def complete(result, error):
             self.importing = False
             self.import_button.set_sensitive(True)
@@ -317,7 +368,13 @@ class Window(Adw.ApplicationWindow):
             else:
                 self.refresh_dictionaries()
                 self.status.set_text(f'Importação concluída: {result["entries"]} entradas.')
-        self.work(lambda: import_dictionary(self.registry, None, path, "longman"), complete)
+        def run():
+            metadata = None
+            if manifest:
+                with Path(manifest).open("rb") as stream:
+                    metadata = tomllib.load(stream)
+            return import_dictionary(self.registry, metadata, path, fmt["id"])
+        self.work(run, complete)
 
     def on_close(self, *_):
         if self.importing:

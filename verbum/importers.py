@@ -33,3 +33,10 @@ def import_dictionary(registry, metadata, source, source_format="json"):
     if policy["method"] != "import":
         raise ValueError("Use the corresponding installation method")
     return registry.import_entries(metadata, json_entries(source, source_format))
+
+# Shared importer descriptions for clients. Only implemented formats are listed.
+IMPORT_FORMATS = (
+    {"id": "longman", "title": "Longman LDOCE5", "description": "Diretório original IDM/SKN", "directory": True, "manifest": False},
+    {"id": "json", "title": "JSON", "description": "Arquivo estruturado com manifesto TOML", "directory": False, "manifest": True},
+    {"id": "jsonl", "title": "JSON Lines", "description": "Arquivo de registros JSON com manifesto TOML", "directory": False, "manifest": True},
+)
