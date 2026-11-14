@@ -13,7 +13,9 @@ class GtkTests(unittest.TestCase):
             app.registry.import_entries(dict(title="Demo", language="en", origin="demo",
                 function="general", license="CC0"), [{"lemma":"sample","definition":"Synthetic entry"}])
             win = Window(app, app.registry)
-            self.assertEqual(win.dictionary.get_model().get_n_items(), 2)
+            self.assertIsNotNone(win.dictionary.get_row_at_index(1))
+            self.assertIsNone(win.dictionary.get_row_at_index(2))
+            self.assertEqual(win.language.get_model().get_n_items(), 2)
             hit = app.registry.search("sample", dictionary="en-demo-general")[0]
             row = Gtk.ListBoxRow()
             row.hit = hit
@@ -25,12 +27,13 @@ class GtkTests(unittest.TestCase):
             self.assertEqual(win.detail.get_first_child().get_text(), "sample")
             win.show_preferences()
             self.assertEqual(win.preferences_page.get_title(), "Dicionários")
-            self.assertIs(win.filters.get_first_child(), win.dictionary)
-            self.assertIs(win.dictionary.get_next_sibling(), win.search)
-            self.assertIs(win.header.get_next_sibling(), win.pane)
+            self.assertIs(win.filters.get_first_child(), win.language)
+            self.assertIs(win.language.get_next_sibling(), win.kind)
+            self.assertIs(win.header.get_title_widget(), win.search)
+            self.assertIs(win.pane.get_start_child(), win.sidebar)
             self.assertEqual(len(win.remove_buttons), 1)
             win.preferences.hide()
-            self.assertEqual(win.import_button.get_label(), "Importar")
+            self.assertTrue(win.import_action.get_enabled())
             self.assertEqual(len(win.rebuild_buttons), 1)
             self.assertEqual(win.rebuild_buttons[0].get_label(), "Reconstruir")
             win.show_import_dialog()

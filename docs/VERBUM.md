@@ -124,3 +124,7 @@ The GUI has one search field, no mode selector. Exact headwords rank first, then
 ## Preferences and window layout (0.3.10)
 
 A single full-width header above the content pane, with Importar and the primary menu at the right. The dictionary selector precedes the search field. Dictionary management is in Preferences → Dicionários. Removal unregisters the dictionary and moves the active VLF into private recovery storage under removed/; original files and older generations are preserved. Recovery/cleanup UI is not yet implemented.
+
+## Nautilus-inspired layout (0.4.0)
+
+Single dictionary sidebar extending to its own header; query field in the right header, language and lexical function filters beneath it, compact selectable results above the entry. Import is in the primary menu and Preferences. Back/forward navigate entry history in the current window. Only implemented actions appear in the menu. Tabs, zoom, keyboard shortcuts and Babylon BGL import are not part of this UI milestone.

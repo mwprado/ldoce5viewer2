@@ -61,47 +61,41 @@ class Window(Adw.ApplicationWindow):
         self.audio_path = None
         self.temp = tempfile.TemporaryDirectory(prefix="verbum-audio-")
         self.connect("close-request", self.on_close)
-        # A single window-wide header; the sidebar starts beneath it.
-        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        # Nautilus-inspired navigation: one sidebar and a content header.
+        outer = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
         self.toast_overlay = Adw.ToastOverlay()
         self.toast_overlay.set_child(outer)
         self.set_content(self.toast_overlay)
-        header = Adw.HeaderBar()
-        self.content_title = Adw.WindowTitle(title="Verbum")
-        header.set_title_widget(self.content_title)
-        self.import_button = button("Importar", self.show_import_dialog)
-        header.pack_end(self.import_button)
-        menu = Gio.Menu()
-        menu.append("Preferências", "win.preferences")
-        action = Gio.SimpleAction.new("preferences", None)
-        action.connect("activate", self.show_preferences)
-        self.add_action(action)
-        self.menu_button = Gtk.MenuButton(icon_name="open-menu-symbolic", menu_model=menu, tooltip_text="Menu principal")
-        header.pack_end(self.menu_button)
         self.preferences = None
-        outer.append(header)
-        pane = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL, position=300, vexpand=True, hexpand=True)
-        outer.append(pane)
-        self.pane = pane
-        self.header = header
+        self.history = []
+        self.history_position = -1
+        self.restoring_history = False
+        self.refreshing_filters = False
+        self.pane = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL, position=250,
+                              vexpand=True, hexpand=True)
+        outer.append(self.pane)
         left = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.sidebar = left
         left.add_css_class("sidebar")
-        left.set_size_request(240, -1)
-        pane.set_start_child(left)
-        pane.set_resize_start_child(False)
-        pane.set_shrink_start_child(False)
-        filters = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6,
-                          margin_start=12, margin_end=12, margin_top=6, margin_bottom=8)
-        left.append(filters)
-        self.search = Gtk.SearchEntry(placeholder_text="Pesquisar palavra…")
-        self.dictionary = Gtk.DropDown()
-        filters.append(self.dictionary)
-        filters.append(self.search)
-        self.filters = filters
-        self.results = Gtk.ListBox(selection_mode=Gtk.SelectionMode.SINGLE)
-        self.results.add_css_class("navigation-sidebar")
-        self.results.connect("row-selected", self.select_result)
-        sc = scroll(self.results)
+        left.set_size_request(200, -1)
+        self.pane.set_start_child(left)
+        self.pane.set_resize_start_child(False)
+        self.pane.set_shrink_start_child(False)
+        sidebar_header = Adw.HeaderBar()
+        sidebar_header.set_show_end_title_buttons(False)
+        self.content_title = Adw.WindowTitle(title="Verbum")
+        sidebar_header.set_title_widget(self.content_title)
+        left.append(sidebar_header)
+        heading = label("Dicionários", "heading")
+        heading.set_selectable(False)
+        heading.set_margin_start(16)
+        heading.set_margin_top(12)
+        heading.set_margin_bottom(6)
+        left.append(heading)
+        self.dictionary = Gtk.ListBox(selection_mode=Gtk.SelectionMode.SINGLE)
+        self.dictionary.add_css_class("navigation-sidebar")
+        self.dictionary.connect("row-selected", self.on_dictionary_selected)
+        sc = scroll(self.dictionary)
         sc.set_vexpand(True)
         left.append(sc)
         self.status = label("Consulte os dicionários locais.", "dim-label")
@@ -127,7 +121,72 @@ class Window(Adw.ApplicationWindow):
         self.import_panel.append(self.cancel_import_button)
         self.import_timer = 0
         right = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, hexpand=True)
-        pane.set_end_child(right)
+        self.pane.set_end_child(right)
+        header = Adw.HeaderBar()
+        self.header = header
+        header.set_show_start_title_buttons(False)
+        self.back = Gtk.Button(icon_name="go-previous-symbolic", tooltip_text="Consulta anterior", sensitive=False)
+        self.forward = Gtk.Button(icon_name="go-next-symbolic", tooltip_text="Próxima consulta", sensitive=False)
+        self.back.connect("clicked", lambda *_: self.navigate_history(-1))
+        self.forward.connect("clicked", lambda *_: self.navigate_history(1))
+        header.pack_start(self.back)
+        header.pack_start(self.forward)
+        self.search = Gtk.SearchEntry(placeholder_text="Pesquisar palavra…", hexpand=True,
+                                      width_chars=24)
+        header.set_title_widget(self.search)
+        menu = Gio.Menu()
+        def add_action(name, callback):
+            action = Gio.SimpleAction.new(name, None)
+            action.connect("activate", callback)
+            self.add_action(action)
+            return action
+        self.import_action = add_action("import", self.show_import_dialog)
+        add_action("preferences", self.show_preferences)
+        add_action("new-window", lambda *_: self.get_application().new_window())
+        add_action("about", self.show_about)
+        add_action("fullscreen", lambda *_: self.unfullscreen() if self.is_fullscreen() else self.fullscreen())
+        sidebar_action = Gio.SimpleAction.new_stateful("sidebar", None, GLib.Variant.new_boolean(True))
+        def toggle_sidebar(action, _):
+            visible = not action.get_state().get_boolean()
+            self.sidebar.set_visible(visible)
+            action.set_state(GLib.Variant.new_boolean(visible))
+        sidebar_action.connect("activate", toggle_sidebar)
+        self.add_action(sidebar_action)
+        for items in [
+            [("Nova janela", "win.new-window"), ("Importar dicionário…", "win.import")],
+            [("Mostrar barra lateral", "win.sidebar"), ("Tela cheia", "win.fullscreen")],
+            [("Preferências", "win.preferences"), ("Sobre o Verbum", "win.about")],
+        ]:
+            section = Gio.Menu()
+            for title, action in items:
+                section.append(title, action)
+            menu.append_section(None, section)
+        self.menu_button = Gtk.MenuButton(icon_name="open-menu-symbolic", menu_model=menu,
+                                          tooltip_text="Menu principal")
+        header.pack_end(self.menu_button)
+        right.append(header)
+        self.filters = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8,
+                               margin_start=12, margin_end=12, margin_top=8, margin_bottom=8)
+        self.language = Gtk.DropDown()
+        self.language.set_tooltip_text("Idioma dos dicionários")
+        self.kind = Gtk.DropDown()
+        self.kind.set_tooltip_text("Tipo de dicionário")
+        self.filters.append(self.language)
+        self.filters.append(self.kind)
+        right.append(self.filters)
+        right.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
+        # Flow of compact selectable results above the entry, never another sidebar.
+        self.results = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.SINGLE,
+                                   min_children_per_line=1, max_children_per_line=8,
+                                   row_spacing=4, column_spacing=4,
+                                   margin_start=12, margin_end=12, margin_top=8, margin_bottom=8)
+        self.results.connect("selected-children-changed", self.on_result_selected)
+        result_scroll = Gtk.ScrolledWindow(max_content_height=132, propagate_natural_height=True)
+        result_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        result_scroll.set_child(self.results)
+        self.result_scroll = result_scroll
+        result_scroll.set_visible(False)
+        right.append(result_scroll)
         self.detail = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12,
                               margin_start=24, margin_end=24, margin_top=24, margin_bottom=32)
         clamp = Adw.Clamp(maximum_size=760, tightening_threshold=580)
@@ -135,9 +194,10 @@ class Window(Adw.ApplicationWindow):
         content_scroll = scroll(clamp)
         content_scroll.set_vexpand(True)
         right.append(content_scroll)
-        self.set_default_widget(self.search)
         self.search.connect("search-changed", self.schedule_search)
-        self.dictionary.connect("notify::selected", self.schedule_search)
+        self.language.connect("notify::selected", self.on_filter_changed)
+        self.kind.connect("notify::selected", self.on_filter_changed)
+        self.search.connect("activate", lambda *_: self.run_search_now())
         self.refresh_dictionaries()
         self.show_empty()
 
@@ -147,10 +207,124 @@ class Window(Adw.ApplicationWindow):
         page = Adw.StatusPage(icon_name="system-search-symbolic", title=title, description=description)
         self.detail.append(page)
 
+    LANGUAGE_NAMES = {"en":"Inglês", "pt":"Português", "pt-br":"Português (Brasil)",
+                      "pt-pt":"Português (Portugal)", "es":"Espanhol", "fr":"Francês",
+                      "it":"Italiano", "de":"Alemão", "la":"Latim", "tupi":"Tupi"}
+    KIND_NAMES = {"general":"Definições", "learner":"Aprendizagem", "orthographic":"Ortográficos",
+                  "synonyms":"Sinônimos e antônimos", "bilingual":"Bilíngues",
+                  "etymological":"Etimológicos", "regency":"Regência", "phonetic":"Fonéticos",
+                  "encyclopedic":"Enciclopédicos"}
+
+    def filter_value(self, widget, keys):
+        index = widget.get_selected()
+        return keys[index] if index < len(keys) else None
+
+    def selected_dictionary(self):
+        row = self.dictionary.get_selected_row()
+        return getattr(row, "slug", None)
+
     def refresh_dictionaries(self):
+        old_language = self.filter_value(self.language, getattr(self, "language_keys", []))
+        old_kind = self.filter_value(self.kind, getattr(self, "kind_keys", []))
+        old_dictionary = self.selected_dictionary()
         self.manifests = self.registry.list()
-        self.dictionary.set_model(Gtk.StringList.new(["Todos os dicionários"] + [m["title"] for m in self.manifests]))
-        self.dictionary.set_selected(0)
+        self.refreshing_filters = True
+        self.language_keys = [None] + sorted({v for m in self.manifests for v in [m["language"], *m.get("languages", [])]})
+        self.kind_keys = [None] + sorted({v for m in self.manifests for v in [m["function"], *m.get("functions", [])]})
+        self.language.set_model(Gtk.StringList.new(["Todos os idiomas"] + [self.LANGUAGE_NAMES.get(v,v) for v in self.language_keys[1:]]))
+        self.kind.set_model(Gtk.StringList.new(["Todos os tipos"] + [self.KIND_NAMES.get(v,v) for v in self.kind_keys[1:]]))
+        self.language.set_selected(self.language_keys.index(old_language) if old_language in self.language_keys else 0)
+        self.kind.set_selected(self.kind_keys.index(old_kind) if old_kind in self.kind_keys else 0)
+        self.refreshing_filters = False
+        self.populate_sidebar(old_dictionary)
+
+    def populate_sidebar(self, preferred=None):
+        language = self.filter_value(self.language, self.language_keys)
+        kind = self.filter_value(self.kind, self.kind_keys)
+        self.refreshing_filters = True
+        clear(self.dictionary)
+        selected = None
+        for m in [None] + self.registry.list(language=language, function=kind):
+            row = Gtk.ListBoxRow()
+            row.slug = m["slug"] if m else None
+            box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8,
+                          margin_start=12, margin_end=12, margin_top=8, margin_bottom=8)
+            box.append(Gtk.Image.new_from_icon_name("x-office-address-book-symbolic" if m else "view-list-symbolic"))
+            title = Gtk.Label(label=m["title"] if m else "Todos", xalign=0, ellipsize=Pango.EllipsizeMode.END)
+            box.append(title)
+            row.set_child(box)
+            self.dictionary.append(row)
+            if row.slug == preferred:
+                selected = row
+        self.dictionary.select_row(selected or self.dictionary.get_row_at_index(0))
+        self.refreshing_filters = False
+        self.schedule_search()
+
+    def on_filter_changed(self, *_):
+        if not self.refreshing_filters:
+            self.populate_sidebar(self.selected_dictionary())
+
+    def on_dictionary_selected(self, *_):
+        if not self.refreshing_filters:
+            self.schedule_search()
+
+    def on_result_selected(self, box):
+        children = box.get_selected_children()
+        if children:
+            self.select_result(box, children[0])
+
+    def run_search_now(self):
+        if self.timeout:
+            GLib.source_remove(self.timeout)
+            self.timeout = 0
+        self.generation += 1
+        self.run_search()
+
+    def remember_hit(self, hit):
+        if self.restoring_history:
+            return
+        state = (self.search.get_text(), hit)
+        if self.history_position >= 0:
+            last = self.history[self.history_position]
+            if last[0] == state[0] and last[1]["dictionary"] == hit["dictionary"] and last[1]["entry_id"] == hit["entry_id"]:
+                return
+        self.history = self.history[:self.history_position+1] + [state]
+        self.history_position = len(self.history)-1
+        self.update_history_buttons()
+
+    def update_history_buttons(self):
+        self.back.set_sensitive(self.history_position > 0)
+        self.forward.set_sensitive(self.history_position + 1 < len(self.history))
+
+    def navigate_history(self, direction):
+        target = self.history_position + direction
+        if not 0 <= target < len(self.history):
+            return
+        self.history_position = target
+        query, hit = self.history[target]
+        self.restoring_history = True
+        try:
+            self.search.set_text(query)
+            if self.timeout:
+                GLib.source_remove(self.timeout)
+                self.timeout = 0
+            self.generation += 1
+            clear(self.results)
+            self.result_scroll.set_visible(False)
+            row = Gtk.FlowBoxChild()
+            row.hit = hit
+            self.select_result(self.results, row)
+        finally:
+            self.restoring_history = False
+        self.update_history_buttons()
+
+    def show_about(self, *_):
+        from . import __version__
+        dialog = Adw.AboutWindow(transient_for=self, application_name="Verbum",
+                                 application_icon="accessories-dictionary-symbolic",
+                                 version=__version__, developer_name="Verbum",
+                                 website="https://github.com/mwprado/ldoce5viewer2")
+        dialog.present()
 
     def work(self, fn, done):
         future = self.pool.submit(fn)
@@ -177,16 +351,18 @@ class Window(Adw.ApplicationWindow):
         self.timeout = 0
         query = self.search.get_text().strip()
         generation = self.generation
-        idx = self.dictionary.get_selected()
-        selected = self.manifests[idx-1]["slug"] if 0 < idx <= len(self.manifests) else None
+        selected = self.selected_dictionary()
+        language = self.filter_value(self.language, self.language_keys)
+        kind = self.filter_value(self.kind, self.kind_keys)
         if not query:
             clear(self.results)
+            self.result_scroll.set_visible(False)
             self.show_empty()
             self.status.set_text("Digite uma palavra.")
             return GLib.SOURCE_REMOVE
         self.status.set_text("Pesquisando…")
         def find():
-            return self.registry.search(query, mode="smart", limit=100, dictionary=selected)
+            return self.registry.search(query, mode="smart", limit=100, dictionary=selected, language=language, function=kind)
         def complete(hits, error):
             if generation != self.generation:
                 return
@@ -195,7 +371,7 @@ class Window(Adw.ApplicationWindow):
                 self.status.set_text(str(error))
                 return
             for hit, (lemma, pos) in zip(hits, result_labels(hits)):
-                row = Gtk.ListBoxRow()
+                row = Gtk.FlowBoxChild()
                 row.hit = hit
                 box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6,
                               margin_start=10, margin_end=10, margin_top=8, margin_bottom=8)
@@ -211,14 +387,16 @@ class Window(Adw.ApplicationWindow):
                 source = next((m["title"] for m in self.manifests if m["slug"] == hit["dictionary"]), hit["dictionary"])
                 row.set_tooltip_text(lemma + (" (" + pos + ")" if pos else "") + "\n" + source)
                 row.set_child(box)
-                self.results.append(row)
+                self.results.insert(row, -1)
             if hits and all(h.get("match") == "similar" for h in hits):
                 self.status.set_text("Palavras semelhantes encontradas.")
             else:
                 self.status.set_text(f"{len(hits)} resultado(s), máximo 100.")
             if hits:
-                self.results.select_row(self.results.get_row_at_index(0))
+                self.result_scroll.set_visible(True)
+                self.results.select_child(self.results.get_child_at_index(0))
             else:
+                self.result_scroll.set_visible(False)
                 self.show_empty("Nenhum resultado", "Tente outra grafia ou palavra.")
         self.work(find, complete)
         return GLib.SOURCE_REMOVE
@@ -242,6 +420,7 @@ class Window(Adw.ApplicationWindow):
             return
         self.reset_detail()
         hit = row.hit
+        self.remember_hit(hit)
         e = hit["entry"]
         if isinstance(e.get("source"), dict) and e["source"].get("archive") == "fs":
             from .longman import presentation_entry
@@ -409,6 +588,12 @@ class Window(Adw.ApplicationWindow):
         self.preferences.add(page)
         installed = Adw.PreferencesGroup(title="Dicionários instalados")
         page.add(installed)
+        import_row = Adw.ActionRow(title="Importar dicionário")
+        import_control = button("Importar", lambda *_: (self.preferences.hide(), self.show_import_dialog()))
+        import_control.set_valign(Gtk.Align.CENTER)
+        import_control.set_sensitive(not self.importing)
+        import_row.add_suffix(import_control)
+        installed.add(import_row)
         self.rebuild_buttons = []
         self.remove_buttons = []
         manifests = self.registry.list()
@@ -608,7 +793,7 @@ class Window(Adw.ApplicationWindow):
         self.importing = True
         self.import_cancel = threading.Event()
         self.import_stage = ("prepare", 0, None)
-        self.import_button.set_sensitive(False)
+        self.import_action.set_enabled(False)
         self.cancel_import_button.set_sensitive(True)
         for control in getattr(self, "rebuild_buttons", []) + getattr(self, "remove_buttons", []):
             control.set_sensitive(False)
@@ -623,7 +808,7 @@ class Window(Adw.ApplicationWindow):
                 GLib.source_remove(self.import_timer)
                 self.import_timer = 0
             self.import_panel.set_visible(False)
-            self.import_button.set_sensitive(True)
+            self.import_action.set_enabled(True)
             for control in getattr(self, "rebuild_buttons", []) + getattr(self, "remove_buttons", []):
                 control.set_sensitive(True)
             if isinstance(error, ImportCancelled):
@@ -679,9 +864,17 @@ class Application(Adw.Application):
         super().__init__(application_id=APP_ID, flags=Gio.ApplicationFlags.NON_UNIQUE)
         self.registry = Registry(root)
 
-    def do_activate(self):
-        window = self.get_active_window() or Window(self, self.registry)
+    def new_window(self):
+        window = Window(self, self.registry)
         window.present()
+        return window
+
+    def do_activate(self):
+        window = self.get_active_window()
+        if isinstance(window, Window):
+            window.present()
+        else:
+            self.new_window()
 
 def main(root=None):
     return Application(root).run(["verbum"])
