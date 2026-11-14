@@ -84,3 +84,20 @@ class LongmanTests(unittest.TestCase):
                 read_longman_media(original, "picture", "../sample.jpg")
             with self.assertRaises(ValueError):
                 get_media(reg, slug, eid, 1, fullsize=True)
+
+    def test_example_audio_associations_and_legacy(self):
+        from verbum.longman import presentation_entry
+        data = b'<Entry id="audio"><Head><HWD><BASE>sample</BASE></HWD><Audio resource="GB_HWD_PRON" topic="gb.mp3"/><Audio resource="US_HWD_PRON" topic="us.mp3"/></Head><Sense><EXAMPLE><BASE>first phrase</BASE><Audio resource="EXA_PRON" topic="first.mp3"/></EXAMPLE><EXAMPLE><BASE>second phrase</BASE><Audio resource="EXA_PRON" topic="second.mp3"/></EXAMPLE><Subsense><EXAMPLE><BASE>nested phrase</BASE><Audio resource="EXA_PRON" topic="nested.mp3"/></EXAMPLE></Subsense></Sense></Entry>'
+        entry = parse_entry(data, "audio.xml")
+        self.assertEqual(entry["pronunciation_indices"], [0, 1])
+        self.assertEqual(entry["senses"][0]["example_details"], [
+            {"text":"first phrase","audio_indices":[2]},
+            {"text":"second phrase","audio_indices":[3]}])
+        self.assertEqual(entry["senses"][1]["example_details"][0]["audio_indices"], [4])
+        old = dict(entry)
+        for key in ("pronunciation_indices", "example_details", "unassigned_examples"):
+            del old[key]
+        old["senses"] = [{k:v for k,v in sense.items() if k != "example_details"} for sense in entry["senses"]]
+        restored = presentation_entry(old)
+        self.assertEqual(restored["senses"], entry["senses"])
+        self.assertEqual(restored["pronunciation_indices"], [0, 1])

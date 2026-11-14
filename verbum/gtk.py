@@ -226,6 +226,7 @@ class Window(Adw.ApplicationWindow):
     def reset_detail(self):
         self.detail_generation += 1
         self.stop_audio()
+        self.active_media_area = None
         clear(self.detail)
 
     def select_result(self, _list, row):
@@ -234,6 +235,9 @@ class Window(Adw.ApplicationWindow):
         self.reset_detail()
         hit = row.hit
         e = hit["entry"]
+        if isinstance(e.get("source"), dict) and e["source"].get("archive") == "fs":
+            from .longman import presentation_entry
+            e = presentation_entry(e)
         self.content_title.set_title("Verbum")
         self.detail.append(label(e["lemma"], "title-1"))
         self.detail.append(label(next((m["title"] for m in self.manifests if m["slug"] == hit["dictionary"]), hit["dictionary"]), "dim-label"))
@@ -246,32 +250,69 @@ class Window(Adw.ApplicationWindow):
         if variants:
             self.detail.append(label("Variantes: " + ", ".join(variants)))
         media = e.get("media", [])
-        if isinstance(media, list) and media:
-            self.detail.append(label("Pronúncias e imagens", "heading"))
-            flow = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, max_children_per_line=4, homogeneous=False, row_spacing=6, column_spacing=6, halign=Gtk.Align.START)
-            self.detail.append(flow)
-            self.media_area = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-            for index, ref in enumerate(media):
-                if not isinstance(ref, dict):
-                    continue
+        if not isinstance(media, list):
+            media = []
+        self.active_media_area = None
+        used = set()
+        pronunciations = e.get("pronunciation_indices")
+        if pronunciations is None:
+            pronunciations = [i for i, ref in enumerate(media) if isinstance(ref, dict)
+                              and ref.get("archive") in ("gb_hwd_pron", "us_hwd_pron")]
+        def controls(indices, parent, *, compact=False):
+            valid = [i for i in indices if isinstance(i, int) and 0 <= i < len(media)
+                     and isinstance(media[i], dict)]
+            if not valid:
+                return
+            flow = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, max_children_per_line=4,
+                               homogeneous=False, row_spacing=4, column_spacing=4, halign=Gtk.Align.START)
+            area = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+            names = {"gb_hwd_pron":"Britânico", "us_hwd_pron":"Americano",
+                     "exa_pron":"Ouvir exemplo", "sfx":"Ouvir som", "sound":"Ouvir áudio",
+                     "picture":"Ver imagem"}
+            for index in valid:
+                ref = media[index]
                 archive = ref.get("archive")
-                names = {"gb_hwd_pron":"Ouvir britânico", "us_hwd_pron":"Ouvir americano", "exa_pron":"Ouvir exemplo", "sfx":"Ouvir som", "sound":"Ouvir áudio", "picture":"Ver imagem"}
                 if archive not in names:
                     continue
+                used.add(index)
                 title = names[archive]
-                if archive in ("exa_pron", "picture"):
-                    title += f" {index+1}"
                 control = Gtk.Button(tooltip_text=title)
                 content = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-                content.append(Gtk.Image.new_from_icon_name("audio-volume-high-symbolic" if archive != "picture" else "image-x-generic-symbolic"))
-                content.append(Gtk.Label(label=title))
+                content.append(Gtk.Image.new_from_icon_name("image-x-generic-symbolic" if archive == "picture"
+                                                            else "audio-volume-high-symbolic"))
+                if not compact:
+                    content.append(Gtk.Label(label=title))
                 control.set_child(content)
                 control.add_css_class("flat")
-                control.connect("clicked", lambda _, i=index: self.load_media(hit, i))
+                control.update_property([Gtk.AccessibleProperty.LABEL], [title])
+                control.connect("clicked", lambda _, i=index: self.load_media(hit, i, area=area))
                 flow.insert(control, -1)
                 if archive == "picture" and ref.get("fullsize"):
-                    flow.insert(button("Imagem integral", lambda _, i=index: self.load_media(hit, i, True)), -1)
-            self.detail.append(self.media_area)
+                    flow.insert(button("Imagem integral", lambda _, i=index: self.load_media(hit, i, True, area=area)), -1)
+            if flow.get_first_child():
+                parent.append(flow)
+                parent.append(area)
+        controls(pronunciations, self.detail)
+        def render_examples(details, fallback):
+            if not isinstance(details, list):
+                details = [{"text":t, "audio_indices":[]} for t in values(fallback)]
+            for example in details:
+                if not isinstance(example, dict) or not example.get("text"):
+                    continue
+                line = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+                text = label("• " + example["text"], "dim-label")
+                text.set_hexpand(True)
+                line.append(text)
+                audio = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+                controls(example.get("audio_indices", []), audio, compact=True)
+                if audio.get_first_child():
+                    # Keep the button beside the example, and the player below it.
+                    flow = audio.get_first_child()
+                    audio.remove(flow)
+                    line.append(flow)
+                self.detail.append(line)
+                if audio.get_first_child():
+                    self.detail.append(audio)
         senses = e.get("senses", [])
         rendered = False
         if isinstance(senses, list):
@@ -280,33 +321,41 @@ class Window(Adw.ApplicationWindow):
                     continue
                 definitions = values(sense.get("definitions"))
                 examples = values(sense.get("examples"))
-                if definitions or examples:
+                if definitions or examples or sense.get("example_details"):
                     rendered = True
                     self.detail.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
                     self.detail.append(label(f"Acepção {n}", "heading"))
                     for text in definitions:
                         self.detail.append(label(text))
-                    for text in examples:
-                        self.detail.append(label("• " + text, "dim-label"))
+                    render_examples(sense.get("example_details"), examples)
         if not rendered:
             for text in values(e.get("definition")) + values(e.get("definitions")):
                 self.detail.append(label(text))
-            for text in values(e.get("examples")):
-                self.detail.append(label("• " + text, "dim-label"))
+            render_examples(e.get("example_details"), e.get("examples"))
+        elif e.get("unassigned_examples"):
+            self.detail.append(label("Outros exemplos", "heading"))
+            render_examples(e["unassigned_examples"], [])
+        remaining = [i for i, ref in enumerate(media) if i not in used and isinstance(ref, dict)]
+        if remaining:
+            self.detail.append(label("Outros recursos", "heading"))
+            controls(remaining, self.detail)
 
-    def load_media(self, hit, index, fullsize=False):
+    def load_media(self, hit, index, fullsize=False, *, area):
         generation = self.detail_generation
         self.media_generation = getattr(self, "media_generation", 0) + 1
         request = self.media_generation
         self.stop_audio()
-        clear(self.media_area)
-        self.media_area.append(label("Carregando recurso…"))
+        if self.active_media_area is not None and self.active_media_area is not area:
+            clear(self.active_media_area)
+        self.active_media_area = area
+        clear(area)
+        area.append(label("Carregando recurso…"))
         def complete(result, error):
             if generation != self.detail_generation or request != self.media_generation:
                 return
-            clear(self.media_area)
+            clear(area)
             if error:
-                self.media_area.append(label(str(error)))
+                area.append(label(str(error)))
                 return
             data, mime = result
             try:
@@ -316,7 +365,7 @@ class Window(Adw.ApplicationWindow):
                         self.audio_path = Path(out.name)
                     self.audio = Gtk.MediaFile.new_for_filename(str(self.audio_path))
                     controls = Gtk.MediaControls(media_stream=self.audio)
-                    self.media_area.append(controls)
+                    area.append(controls)
                     self.audio.connect("notify::error", self.audio_error)
                     self.audio.play()
                 elif mime.startswith("image/"):
@@ -324,9 +373,9 @@ class Window(Adw.ApplicationWindow):
                     picture = Gtk.Picture.new_for_paintable(texture)
                     picture.set_can_shrink(True)
                     picture.set_size_request(-1, 180)
-                    self.media_area.append(picture)
+                    area.append(picture)
             except Exception as exc:
-                self.media_area.append(label(str(exc)))
+                area.append(label(str(exc)))
         self.work(lambda: get_media(self.registry, hit["dictionary"], hit["entry_id"], index, fullsize), complete)
 
     def audio_error(self, stream, _):

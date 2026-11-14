@@ -1,4 +1,4 @@
-# Verbum 0.3.5 — Projeto Cangaço
+# Verbum 0.3.6 — Projeto Cangaço
 
 Verbum replaces the provisional DictViewer name on this development branch.
 The existing Longman application remains unchanged.
@@ -104,3 +104,7 @@ Inline progress follows the GNOME HIG: real indexed-entry counts for Longman, ac
 ## Rebuilding dictionaries (0.3.5)
 
 Library lists installed dictionaries separately with a Reconstruir action. Importar is on the right content header. Rebuild preserves slug and UUID and publishes a new validated VLF generation by updating the registry in a transaction. The previous generation remains on disk for concurrent readers and recovery; automatic cleanup is not yet implemented. Existing JSON bases without source metadata require selecting a format, file and manifest. CLI: `python3 -m verbum import ~/App/ldoce5.data --format longman --rebuild en-longman-learner-5`.
+
+## Contextual pronunciation (0.3.6)
+
+Headword pronunciation controls appear near the lemma; example audio controls appear next to their original example text and use the source XML association, never an inferred ordering. Unassociated media are shown separately. Existing Longman VLF files recover associations from preserved XML without reimport when media references match exactly. New imports store the associations explicitly.

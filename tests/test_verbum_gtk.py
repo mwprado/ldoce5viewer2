@@ -19,6 +19,10 @@ class GtkTests(unittest.TestCase):
             row.hit = hit
             win.select_result(win.results, row)
             self.assertEqual(win.detail.get_first_child().get_text(), "sample")
+            from verbum.longman import parse_entry
+            row.hit = dict(hit, entry=parse_entry(b'<Entry id="test"><Head><HWD><BASE>sample</BASE></HWD><Audio resource="GB_HWD_PRON" topic="gb.mp3"/></Head><Sense><EXAMPLE><BASE>sample phrase</BASE><Audio resource="EXA_PRON" topic="example.mp3"/></EXAMPLE></Sense></Entry>', "test.xml"))
+            win.select_result(win.results, row)
+            self.assertEqual(win.detail.get_first_child().get_text(), "sample")
             win.show_catalog()
             self.assertEqual(win.detail.get_first_child().get_text(), "Biblioteca de dicionários")
             self.assertEqual(win.import_button.get_label(), "Importar")

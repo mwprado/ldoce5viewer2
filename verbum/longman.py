@@ -58,6 +58,19 @@ def parse_entry(data, source_name):
     if head is None or not lemma or not source_id:
         raise ValueError("Missing Longman headword or ID: " + source_name)
     senses = []
+    audio_indices = {}
+    media = []
+    for node in root.iter("Audio"):
+        resource, topic = node.get("resource"), node.get("topic")
+        if resource and topic:
+            audio_indices[node] = len(media)
+            media.append({"type":"audio", "archive":resource.lower(), "name":topic.split("/")[-1]})
+    def example_detail(node):
+        text = _text(node.find("BASE") if node.find("BASE") is not None else node)
+        return {"text":text, "audio_indices":[audio_indices[a] for a in node.iter("Audio") if a in audio_indices]}
+    pronunciations = [audio_indices[a] for a in head.iter("Audio") if a in audio_indices
+                      and media[audio_indices[a]]["archive"] in ("gb_hwd_pron", "us_hwd_pron")
+                      and not any(p.tag == "EXAMPLE" for p in a.iterancestors())]
     for node in root.xpath(".//Sense | .//Subsense"):
         # Exclude definitions/examples belonging to nested senses.
         def owned(tag):
@@ -65,12 +78,8 @@ def parse_entry(data, source_name):
                     if next((a for a in e.iterancestors() if a.tag in ("Sense", "Subsense")), None) is node]
         senses.append({"id": node.get("id"), "definitions": _texts(owned("DEF")),
                        "examples": _texts(e.find("BASE") if e.find("BASE") is not None else e
-                                          for e in owned("EXAMPLE"))})
-    media = []
-    for node in root.iter("Audio"):
-        resource, topic = node.get("resource"), node.get("topic")
-        if resource and topic:
-            media.append({"type":"audio", "archive":resource.lower(), "name":topic.split("/")[-1]})
+                                          for e in owned("EXAMPLE")),
+                       "example_details":[example_detail(e) for e in owned("EXAMPLE")]})
     for node in root.iter("ILLUSTRATION"):
         thumb = node.get("thumb")
         if thumb:
@@ -83,7 +92,10 @@ def parse_entry(data, source_name):
             "variants":variants, "senses":senses,
             "definitions":_texts(root.iter("DEF")),
             "examples":_texts(e.find("BASE") if e.find("BASE") is not None else e for e in root.iter("EXAMPLE")),
-            "media":media,
+            "media":media, "pronunciation_indices":pronunciations,
+            "example_details":[example_detail(e) for e in root.iter("EXAMPLE")],
+            "unassigned_examples":[example_detail(e) for e in root.iter("EXAMPLE")
+                                   if not any(a.tag in ("Sense", "Subsense") for a in e.iterancestors())],
             "source":{"archive":"fs", "file":source_name, "xml_base64":base64.b64encode(data).decode("ascii")}}
 
 def locations(source, cancel=None):
@@ -114,3 +126,22 @@ def entries(source, locations=None):
                 raise ValueError("Duplicate Longman entry ID: " + entry["source_id"])
             seen.add(entry["source_id"])
             yield entry
+
+def presentation_entry(entry):
+    """Recover example associations from preserved XML in older VLF generations.
+
+    Never bind an index to a different resource than the installed payload.
+    """
+    if "pronunciation_indices" in entry:
+        return entry
+    source = entry.get("source")
+    if not isinstance(source, dict) or source.get("archive") != "fs" or not source.get("xml_base64"):
+        return entry
+    try:
+        parsed = parse_entry(base64.b64decode(source["xml_base64"], validate=True), source.get("file", ""))
+    except Exception:
+        return entry
+    if parsed["media"] != entry.get("media", []):
+        return entry
+    return dict(entry, senses=parsed["senses"], pronunciation_indices=parsed["pronunciation_indices"],
+                example_details=parsed["example_details"], unassigned_examples=parsed["unassigned_examples"])
