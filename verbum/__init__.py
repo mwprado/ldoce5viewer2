@@ -1,2 +1,2 @@
 """Verbum lexical service, independent of the graphical frontend."""
-__version__ = "0.4.3"
+__version__ = "0.4.4"

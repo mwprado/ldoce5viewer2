@@ -140,3 +140,7 @@ From the checkout, with the intended Python environment activated, run `python -
 ## RPM packaging (0.4.3)
 
 Independent `package/verbum.spec`, targeting Fedora and EPEL 10 with Python >=3.11. It installs only Verbum, including the isolated GPL Longman IDM reader, launcher, icon, MIME and AppStream metadata. No Qt packages or dictionary data are included. PyGlossary 5.x is recommended, not required, until a suitable RPM is available. The source is pinned to tag `verbum-0.4.3`; before repository rename use `--define 'upstream_repo ldoce5viewer2'`. No default MIME association is changed by RPM installation. EPEL 9 default Python 3.9 is unsupported.
+
+## VLF v2 — embedded resources (0.4.4)
+
+The legacy converter now embeds every referenced Longman pronunciation, example audio and picture (including full-size references) in a content-addressed SQLite `resources` table. References retain their original indices and gain SHA-256 identifiers. A missing referenced asset aborts the transaction, leaving the old base active. Rebuild using `python -m verbum import ~/App/ldoce5.data --format longman --rebuild en-longman-learner-5`. Older VLF files remain readable. Embedded resource playback does not require IDM/SKN. No proprietary data is committed to GitHub. The converter remains GPL in the original repository; the standalone reader only needs `resources.py` and the VLF database.

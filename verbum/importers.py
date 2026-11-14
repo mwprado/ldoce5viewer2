@@ -29,8 +29,12 @@ def import_dictionary(registry, metadata, source, source_format="json", *, progr
             raise ValueError("Longman uses its native catalog metadata; omit --manifest")
         path = longman.validate_source(source)
         locations = longman.locations(path, cancel=cancel)
-        return registry.import_entries(longman.metadata(path), longman.entries(path, locations=locations),
-                                       total=len(locations), progress=progress, cancel=cancel, rebuild=rebuild)
+        from .media import read_longman_media
+        m = longman.metadata(path)
+        m["capabilities"].append("embedded-media")
+        return registry.import_entries(m, longman.entries(path, locations=locations),
+                                       total=len(locations), progress=progress, cancel=cancel, rebuild=rebuild,
+                                       resource_loader=lambda archive, name: read_longman_media(path, archive, name))
     if metadata is None:
         raise ValueError("JSON/JSONL requires --manifest")
     if source_format not in ("json", "jsonl"):

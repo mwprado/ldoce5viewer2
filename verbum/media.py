@@ -82,6 +82,9 @@ def get_media(registry, dictionary, entry_id, index, fullsize=False):
     manifest, resources = entry_media(registry, dictionary, entry_id)
     if not isinstance(index, int) or not 0 <= index < len(resources):
         raise ValueError("Unknown media index")
+    if resources[index].get("sha256"):
+        from .resources import get_embedded_media
+        return get_embedded_media(registry, dictionary, entry_id, index, fullsize)
     if manifest.get("source_format") != "idm-skn":
         raise ValueError("No media provider for this dictionary")
     ref = resources[index]

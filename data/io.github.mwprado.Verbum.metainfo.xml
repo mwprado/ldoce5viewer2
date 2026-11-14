@@ -15,6 +15,6 @@
   <url type="bugtracker">https://github.com/mwprado/verbum/issues</url>
   <provides><mediatype>application/x-babylon-bgl</mediatype></provides>
   <developer id="io.github.mwprado"><name>Verbum</name></developer>
-  <releases><release version="0.4.3" date="2026-11-14"/></releases>
+  <releases><release version="0.4.4" date="2026-11-14"/></releases>
   <content_rating type="oars-1.1"/>
 </component>

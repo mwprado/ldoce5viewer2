@@ -1,4 +1,4 @@
-"""VLF v1: one SQLite database per dictionary; local, read-only queries."""
+"""VLF v2: one SQLite database per dictionary; local, read-only queries."""
 import json
 import os
 import re
@@ -11,12 +11,13 @@ from pathlib import Path
 from .catalog import distribution_info
 
 SCHEMA = """
-PRAGMA user_version=1;
+PRAGMA user_version=2;
 CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE entries (
  id INTEGER PRIMARY KEY, lemma TEXT NOT NULL, normalized TEXT NOT NULL,
  language TEXT NOT NULL, payload TEXT NOT NULL
 );
+CREATE TABLE resources (sha256 TEXT PRIMARY KEY, mime TEXT NOT NULL, content BLOB NOT NULL);
 CREATE INDEX entries_normalized ON entries(normalized);
 CREATE VIRTUAL TABLE search_index USING fts5(lemma, body, tokenize='unicode61 remove_diacritics 0');
 """
@@ -50,8 +51,8 @@ def manifest_info(m, *, catalog=False):
     m["access"] = m.get("access", "local")
     m["distribution"] = distribution_info(m)
     if not catalog and m["access"] != "local":
-        raise ValueError("VLF v1 imports local sources only")
-    m["format_version"] = 1
+        raise ValueError("VLF imports local sources only")
+    m["format_version"] = 2
     if not catalog and m["distribution"]["method"] == "web":
         raise ValueError("Web sources cannot be imported as VLF")
     return m
@@ -126,7 +127,7 @@ class Registry:
                 path.unlink(missing_ok=True)
         return str(backup) if backup else None
 
-    def import_entries(self, metadata, entries, *, total=None, progress=None, cancel=None, rebuild=None):
+    def import_entries(self, metadata, entries, *, total=None, progress=None, cancel=None, rebuild=None, resource_loader=None):
         check_cancel(cancel)
         m = manifest_info(metadata)
         previous = None
@@ -157,6 +158,7 @@ class Registry:
                 db.executescript(SCHEMA)
                 db.execute("INSERT INTO metadata VALUES (?,?)", ("manifest", json.dumps(m, ensure_ascii=False)))
                 count = 0
+                resource_cache = {}
                 report("index", count)
                 for entry in entries:
                     check_cancel(cancel)
@@ -168,6 +170,9 @@ class Registry:
                     language = entry.get("language", m["language"])
                     token(language)
                     payload = dict(entry, language=language)
+                    if resource_loader is not None:
+                        from .resources import embed_resources
+                        payload = embed_resources(db, payload, resource_loader, resource_cache, cancel)
                     data = json.dumps(payload, ensure_ascii=False, allow_nan=False)
                     cursor = db.execute("INSERT INTO entries(lemma,normalized,language,payload) VALUES (?,?,?,?)",
                                         (lemma, normalize(lemma), language, data))

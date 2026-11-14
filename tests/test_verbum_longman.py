@@ -40,7 +40,7 @@ class LongmanTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             original = root / "original"
-            archive(original)
+            archive(original, XML.replace(b'<Audio resource="GB_HWD_PRON" topic="x/sample.mp3"/>', b"").replace(b'<ILLUSTRATION thumb="x/sample.jpg"/>', b""))
             reg = Registry(root / "data")
             result = import_dictionary(reg, None, original, "longman")
             self.assertEqual(result["slug"], "en-longman-learner-5")
@@ -70,14 +70,28 @@ class LongmanTests(unittest.TestCase):
             image = b"\xff\xd8\xffsynthetic-image"
             archive(original, audio, "gb_hwd_pron", "sample.mp3")
             archive(original, image, "picture", "sample.jpg", "thumbnail")
+            # Synthetic archive helper supports one directory; omit fullsize reference for this fixture.
+            from unittest.mock import patch
+            from verbum.longman import entries as original_entries
+            def without_fullsize(*args, **kwargs):
+                for e in original_entries(*args, **kwargs):
+                    for ref in e["media"]:
+                        ref.pop("fullsize", None)
+                    yield e
             reg = Registry(root / "data")
-            result = import_dictionary(reg, None, original, "longman")
+            with patch("verbum.longman.entries", without_fullsize):
+                result = import_dictionary(reg, None, original, "longman")
             slug = result["slug"]
             hit = reg.search("sample", mode="exact")[0]
             eid = hit["entry_id"]
             self.assertEqual(len(entry_media(reg, slug, eid)[1]), 2)
             self.assertEqual(get_media(reg, slug, eid, 0), (audio, "audio/mpeg"))
             self.assertEqual(get_media(reg, slug, eid, 1), (image, "image/jpeg"))
+            import shutil
+            shutil.rmtree(original)
+            self.assertEqual(get_media(reg, slug, eid, 0), (audio, "audio/mpeg"))
+            self.assertEqual(get_media(reg, slug, eid, 1), (image, "image/jpeg"))
+            self.assertEqual(result["format_version"], 2)
             with self.assertRaises(ValueError):
                 get_media(reg, slug, eid, -1)
             with self.assertRaises(ValueError):

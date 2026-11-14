@@ -5,7 +5,7 @@
 %global appid io.github.mwprado.Verbum
 
 Name:           verbum
-Version:        0.4.3
+Version:        0.4.4
 Release:        1%{?dist}
 Summary:        Multilingual dictionary and lexical service for GNOME
 
