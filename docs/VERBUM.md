@@ -132,3 +132,7 @@ Single dictionary sidebar extending to its own header; query field in the right 
 ## Babylon BGL (0.4.1)
 
 Optional PyGlossary 5.x dependency (`python3 -m pip install 'pyglossary>=5,<6'` in a virtual environment with system GTK packages). Menu → Importar dicionário → Babylon BGL. Aurélio is recognized from the title/file name; other BGL files use their embedded name and language metadata. CLI: `python3 -m verbum import /path/Aurelio_pt_pt.BGL --format bgl`. Optional TOML metadata override is supported by CLI. Headwords, variants and original decoded HTML are preserved, with plain text for display/indexing. Embedded binary resources are not yet imported. No real proprietary fixture is included in tests.
+
+## Desktop integration (0.4.2)
+
+From the checkout, with the intended Python environment activated, run `python -m verbum install-desktop --default-bgl`. Requires shared-mime-info, desktop-file-utils and xdg-utils. The command installs the per-user desktop launcher, MIME definition and vector icon; default association is opt-in. Double-clicking a local BGL opens a confirmation dialog; cancel leaves the source and library unchanged. Run `python -m verbum gui /path/file.bgl` to test without desktop integration. The SVG is a simplified vector interpretation of the calligraphic icon.

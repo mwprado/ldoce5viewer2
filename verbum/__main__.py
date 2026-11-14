@@ -3,6 +3,7 @@ import argparse
 import json
 import sys
 import sqlite3
+import subprocess
 import tomllib
 from pathlib import Path
 from .core import Registry
@@ -30,7 +31,10 @@ def main(argv=None):
             p.add_argument("query")
             p.add_argument("--mode", choices=["smart", "prefix", "exact", "fulltext"], default="smart")
             p.add_argument("--limit", type=int, default=50)
-    sub.add_parser("gui", help="Launch the native GNOME interface")
+    gui = sub.add_parser("gui", help="Launch the native GNOME interface")
+    gui.add_argument("files", nargs="*", help="Local BGL files to confirm importing")
+    desktop = sub.add_parser("install-desktop", help="Register Verbum and its BGL MIME type for this user")
+    desktop.add_argument("--default-bgl", action="store_true", help="Set Verbum as the default BGL application")
     media = sub.add_parser("media", help="List or retrieve media from original sources")
     media.add_argument("dictionary")
     media.add_argument("entry_id", type=int)
@@ -44,7 +48,11 @@ def main(argv=None):
                 from .gtk import main as gui_main
             except (ImportError, ValueError) as exc:
                 raise ValueError("GTK4, libadwaita and PyGObject are required: " + str(exc)) from exc
-            return gui_main(args.root)
+            return gui_main(args.root, args.files)
+        if args.command == "install-desktop":
+            from .desktop import install_desktop
+            install_desktop(default_bgl=args.default_bgl)
+            return 0
         registry = Registry(args.root)
         if args.command == "import":
             metadata = None
@@ -75,7 +83,7 @@ def main(argv=None):
                 result = registry.search(args.query, **filters, mode=args.mode, limit=args.limit)
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
-    except (ValueError, OSError, sqlite3.Error) as exc:
+    except (ValueError, OSError, sqlite3.Error, subprocess.CalledProcessError) as exc:
         print("verbum: " + str(exc), file=sys.stderr)
         return 1
 

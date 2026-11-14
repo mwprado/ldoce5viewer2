@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Verbum
+Comment=Multilingual dictionary and lexical service
+Comment[pt_BR]=Dicionário multilíngue e serviço lexical
+Exec=verbum gui %F
+Icon=io.github.mwprado.Verbum
+Terminal=false
+Categories=Education;Dictionary;
+MimeType=application/x-babylon-bgl;
+StartupNotify=true

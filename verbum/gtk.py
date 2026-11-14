@@ -739,6 +739,12 @@ class Window(Adw.ApplicationWindow):
         self.choose_file("Selecione o manifesto TOML", Gtk.FileChooserAction.OPEN,
                          lambda manifest: self.confirm_import(fmt, path, manifest, rebuild=rebuild))
 
+    def open_bgl(self, path):
+        from .bgl import validate_source
+        path = str(validate_source(path))
+        fmt = next(f for f in IMPORT_FORMATS if f["id"] == "bgl")
+        return self.confirm_import(fmt, path)
+
     def confirm_import(self, fmt, path, manifest=None, *, rebuild=None, metadata=None):
         heading = "Reconstruir dicionário?" if rebuild else "Confirmar importação"
         message = ("A base instalada será substituída após a validação da nova. Os arquivos originais permanecerão inalterados."
@@ -758,6 +764,7 @@ class Window(Adw.ApplicationWindow):
                 self.choose_source(fmt, rebuild=rebuild)
         dialog.connect("response", response)
         dialog.present()
+        return dialog
 
     def cancel_import(self, *_):
         if self.importing and self.import_stage[0] != "publish":
@@ -861,7 +868,7 @@ class Window(Adw.ApplicationWindow):
 
 class Application(Adw.Application):
     def __init__(self, root=None):
-        super().__init__(application_id=APP_ID, flags=Gio.ApplicationFlags.NON_UNIQUE)
+        super().__init__(application_id=APP_ID, flags=Gio.ApplicationFlags.NON_UNIQUE | Gio.ApplicationFlags.HANDLES_OPEN)
         self.registry = Registry(root)
 
     def new_window(self):
@@ -876,8 +883,24 @@ class Application(Adw.Application):
         else:
             self.new_window()
 
-def main(root=None):
-    return Application(root).run(["verbum"])
+    def do_open(self, files, n_files, hint):
+        # Separate confirmation for every local file; never import on activation.
+        for file in files:
+            window = self.new_window()
+            try:
+                path = file.get_path()
+                if path is None:
+                    raise ValueError("Selecione um arquivo BGL local.")
+                window.open_bgl(path)
+            except (ValueError, OSError) as exc:
+                dialog = Adw.MessageDialog(transient_for=window,
+                    heading="Não foi possível abrir o dicionário", body=str(exc))
+                dialog.add_response("close", "Fechar")
+                dialog.set_close_response("close")
+                dialog.present()
+
+def main(root=None, files=None):
+    return Application(root).run(["verbum", "--", *(files or [])])
 
 if __name__ == "__main__":
     raise SystemExit(main())

@@ -42,6 +42,13 @@ class GtkTests(unittest.TestCase):
             self.assertIn("TOML", win.import_description.get_text())
             win.import_dialog.response("cancel")
             self.assertIsNone(win.import_dialog)
+            from pathlib import Path
+            path = Path(root) / "sample.BGL"
+            path.write_bytes(b"\x12\x34\x00\x01\x00\x06")
+            dialog = win.open_bgl(path)
+            self.assertEqual(dialog.get_heading(), "Confirmar importação")
+            self.assertFalse(win.importing)
+            dialog.response("cancel")
             self.assertFalse(win.import_panel.get_visible())
             win.importing = True
             from threading import Event

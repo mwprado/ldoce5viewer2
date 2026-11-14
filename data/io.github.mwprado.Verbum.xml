@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-babylon-bgl">
+    <comment>Babylon glossary</comment>
+    <comment xml:lang="pt_BR">Dicionário Babylon</comment>
+    <glob pattern="*.bgl" weight="90"/>
+    <magic priority="80">
+      <match type="string" value="\x12\x34\x00\x01" offset="0"/>
+      <match type="string" value="\x12\x34\x00\x02" offset="0"/>
+    </magic>
+    <icon name="io.github.mwprado.Verbum"/>
+  </mime-type>
+</mime-info>
