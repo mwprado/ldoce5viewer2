@@ -128,3 +128,7 @@ A single full-width header above the content pane, with Importar and the primary
 ## Nautilus-inspired layout (0.4.0)
 
 Single dictionary sidebar extending to its own header; query field in the right header, language and lexical function filters beneath it, compact selectable results above the entry. Import is in the primary menu and Preferences. Back/forward navigate entry history in the current window. Only implemented actions appear in the menu. Tabs, zoom, keyboard shortcuts and Babylon BGL import are not part of this UI milestone.
+
+## Babylon BGL (0.4.1)
+
+Optional PyGlossary 5.x dependency (`python3 -m pip install 'pyglossary>=5,<6'` in a virtual environment with system GTK packages). Menu → Importar dicionário → Babylon BGL. Aurélio is recognized from the title/file name; other BGL files use their embedded name and language metadata. CLI: `python3 -m verbum import /path/Aurelio_pt_pt.BGL --format bgl`. Optional TOML metadata override is supported by CLI. Headwords, variants and original decoded HTML are preserved, with plain text for display/indexing. Embedded binary resources are not yet imported. No real proprietary fixture is included in tests.

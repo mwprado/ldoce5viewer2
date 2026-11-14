@@ -20,6 +20,9 @@ def import_dictionary(registry, metadata, source, source_format="json", *, progr
     check_cancel(cancel)
     if progress:
         progress("prepare", 0, None)
+    if source_format == "bgl":
+        from .bgl import import_bgl
+        return import_bgl(registry, source, metadata, progress=progress, cancel=cancel, rebuild=rebuild)
     if source_format == "longman":
         from . import longman
         if metadata:
@@ -44,6 +47,7 @@ def import_dictionary(registry, metadata, source, source_format="json", *, progr
 # Shared importer descriptions for clients. Only implemented formats are listed.
 IMPORT_FORMATS = (
     {"id": "longman", "title": "Longman LDOCE5", "description": "Diretório original IDM/SKN", "directory": True, "manifest": False},
+    {"id": "bgl", "title": "Babylon BGL", "description": "Arquivo original .bgl (requer PyGlossary)", "directory": False, "manifest": False},
     {"id": "json", "title": "JSON", "description": "Arquivo estruturado com manifesto TOML", "directory": False, "manifest": True},
     {"id": "jsonl", "title": "JSON Lines", "description": "Arquivo de registros JSON com manifesto TOML", "directory": False, "manifest": True},
 )
