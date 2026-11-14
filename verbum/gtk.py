@@ -61,35 +61,43 @@ class Window(Adw.ApplicationWindow):
         self.audio_path = None
         self.temp = tempfile.TemporaryDirectory(prefix="verbum-audio-")
         self.connect("close-request", self.on_close)
-        # GNOME split-view pattern: distinct sidebar and content header bars.
-        outer = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        # A single window-wide header; the sidebar starts beneath it.
+        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         self.toast_overlay = Adw.ToastOverlay()
         self.toast_overlay.set_child(outer)
         self.set_content(self.toast_overlay)
+        header = Adw.HeaderBar()
+        self.content_title = Adw.WindowTitle(title="Verbum")
+        header.set_title_widget(self.content_title)
+        self.import_button = button("Importar", self.show_import_dialog)
+        header.pack_end(self.import_button)
+        menu = Gio.Menu()
+        menu.append("Preferências", "win.preferences")
+        action = Gio.SimpleAction.new("preferences", None)
+        action.connect("activate", self.show_preferences)
+        self.add_action(action)
+        self.menu_button = Gtk.MenuButton(icon_name="open-menu-symbolic", menu_model=menu, tooltip_text="Menu principal")
+        header.pack_end(self.menu_button)
+        self.preferences = None
+        outer.append(header)
         pane = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL, position=300, vexpand=True, hexpand=True)
-        pane.add_css_class("sidebar-pane")
         outer.append(pane)
+        self.pane = pane
+        self.header = header
         left = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         left.add_css_class("sidebar")
         left.set_size_request(240, -1)
         pane.set_start_child(left)
         pane.set_resize_start_child(False)
         pane.set_shrink_start_child(False)
-        sidebar_header = Adw.HeaderBar()
-        sidebar_header.set_show_end_title_buttons(False)
-        sidebar_header.set_title_widget(Adw.WindowTitle(title="Verbum"))
-        left.append(sidebar_header)
-        library = Gtk.Button(icon_name="view-list-symbolic", tooltip_text="Biblioteca")
-        library.connect("clicked", self.show_catalog)
-        sidebar_header.pack_start(library)
-        self.import_button = button("Importar", self.show_import_dialog)
         filters = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6,
                           margin_start=12, margin_end=12, margin_top=6, margin_bottom=8)
         left.append(filters)
         self.search = Gtk.SearchEntry(placeholder_text="Pesquisar palavra…")
-        filters.append(self.search)
         self.dictionary = Gtk.DropDown()
         filters.append(self.dictionary)
+        filters.append(self.search)
+        self.filters = filters
         self.results = Gtk.ListBox(selection_mode=Gtk.SelectionMode.SINGLE)
         self.results.add_css_class("navigation-sidebar")
         self.results.connect("row-selected", self.select_result)
@@ -120,12 +128,6 @@ class Window(Adw.ApplicationWindow):
         self.import_timer = 0
         right = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, hexpand=True)
         pane.set_end_child(right)
-        header = Adw.HeaderBar()
-        header.set_show_start_title_buttons(False)
-        self.content_title = Adw.WindowTitle(title="Dicionário")
-        header.set_title_widget(self.content_title)
-        header.pack_end(self.import_button)
-        right.append(header)
         self.detail = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12,
                               margin_start=24, margin_end=24, margin_top=24, margin_bottom=32)
         clamp = Adw.Clamp(maximum_size=760, tightening_threshold=580)
@@ -141,7 +143,7 @@ class Window(Adw.ApplicationWindow):
 
     def show_empty(self, title="Pesquisar palavras", description="Digite uma palavra ou importe um dicionário para começar."):
         self.reset_detail()
-        self.content_title.set_title("Dicionário")
+        self.content_title.set_title("Verbum")
         page = Adw.StatusPage(icon_name="system-search-symbolic", title=title, description=description)
         self.detail.append(page)
 
@@ -388,38 +390,88 @@ class Window(Adw.ApplicationWindow):
         if stream is self.audio and stream.get_error():
             self.status.set_text(str(stream.get_error()))
 
-    def show_catalog(self, *_):
-        self.generation += 1
-        if self.timeout:
-            GLib.source_remove(self.timeout)
-            self.timeout = 0
-        self.reset_detail()
-        self.content_title.set_title("Biblioteca")
-        self.detail.append(label("Biblioteca de dicionários", "title-1"))
+    def show_preferences(self, *_):
+        if self.preferences is None:
+            self.preferences = Adw.PreferencesWindow(transient_for=self, modal=False,
+                                                     title="Preferências", default_width=640, default_height=540,
+                                                     hide_on_close=True)
+        self.populate_preferences()
+        self.preferences.present()
+
+    def populate_preferences(self):
+        if self.preferences is None:
+            return
+        old = getattr(self, "preferences_page", None)
+        if old is not None:
+            self.preferences.remove(old)
+        page = Adw.PreferencesPage(title="Dicionários", icon_name="view-list-symbolic")
+        self.preferences_page = page
+        self.preferences.add(page)
         installed = Adw.PreferencesGroup(title="Dicionários instalados")
-        self.detail.append(installed)
+        page.add(installed)
         self.rebuild_buttons = []
-        for m in self.registry.list():
-            row = Adw.ActionRow(title=GLib.markup_escape_text(m["title"]), subtitle=m["slug"])
+        self.remove_buttons = []
+        manifests = self.registry.list()
+        for m in manifests:
+            row = Adw.ActionRow(title=GLib.markup_escape_text(m["title"]),
+                                subtitle=GLib.markup_escape_text(m["language"] + " · " + m["origin"]))
             control = button("Reconstruir", lambda _, item=m: self.rebuild_dictionary(item))
             control.set_valign(Gtk.Align.CENTER)
             control.set_sensitive(not self.importing)
             self.rebuild_buttons.append(control)
             row.add_suffix(control)
+            remove = Gtk.Button(icon_name="user-trash-symbolic", tooltip_text="Remover dicionário",
+                                valign=Gtk.Align.CENTER, sensitive=not self.importing)
+            remove.add_css_class("flat")
+            remove.connect("clicked", lambda _, item=m: self.confirm_remove(item))
+            self.remove_buttons.append(remove)
+            row.add_suffix(remove)
             installed.add(row)
+        if not manifests:
+            installed.add(Adw.ActionRow(title="Nenhum dicionário instalado"))
         group = Adw.PreferencesGroup(title="Dicionários disponíveis")
-        self.detail.append(group)
+        page.add(group)
         for m in catalog_list(self.registry):
             if m["installed"]:
                 continue
             d = m["distribution"]
-            state = "Instalado" if m["installed"] else ("Importável" if d.get("importer") in {fmt["id"] for fmt in IMPORT_FORMATS} else "Planejado")
+            state = "Importável" if d.get("importer") in {fmt["id"] for fmt in IMPORT_FORMATS} else "Planejado"
             row = Adw.ActionRow(title=GLib.markup_escape_text(m["title"]), subtitle=f'{m["language"]} · {m["origin"]} · {m["function"]}')
             suffix = Gtk.Label(label=state, valign=Gtk.Align.CENTER)
             suffix.add_css_class("dim-label")
             row.add_suffix(suffix)
             group.add(row)
-        self.detail.append(label("As fontes web e os demais importadores ainda não estão ativos."))
+
+    def confirm_remove(self, m):
+        if self.importing:
+            return
+        dialog = Adw.MessageDialog(transient_for=self.preferences or self, heading="Remover dicionário?",
+            body=m["title"] + "\n\nA base será retirada da biblioteca. Os arquivos originais não serão alterados.")
+        dialog.add_response("cancel", "Cancelar")
+        dialog.add_response("remove", "Remover")
+        dialog.set_response_appearance("remove", Adw.ResponseAppearance.DESTRUCTIVE)
+        dialog.set_default_response("cancel")
+        dialog.set_close_response("cancel")
+        def response(_, choice):
+            if choice != "remove" or self.importing:
+                return
+            try:
+                self.registry.remove_dictionary(m["slug"])
+            except Exception as exc:
+                error = Adw.MessageDialog(transient_for=self.preferences or self,
+                                          heading="Não foi possível remover", body=str(exc))
+                error.add_response("close", "Fechar")
+                error.set_close_response("close")
+                error.present()
+                return
+            self.generation += 1
+            clear(self.results)
+            self.show_empty()
+            self.refresh_dictionaries()
+            self.populate_preferences()
+            self.toast_overlay.add_toast(Adw.Toast.new("Dicionário removido"))
+        dialog.connect("response", response)
+        dialog.present()
 
     def show_import_dialog(self, *_, rebuild=None):
         if self.importing:
@@ -462,6 +514,8 @@ class Window(Adw.ApplicationWindow):
     def rebuild_dictionary(self, m):
         if self.importing:
             return
+        if self.preferences is not None:
+            self.preferences.hide()
         fmt_id = "longman" if m.get("source_format") == "idm-skn" else m.get("source_format")
         fmt = next((v for v in IMPORT_FORMATS if v["id"] == fmt_id), None)
         if fmt is None:
@@ -556,7 +610,7 @@ class Window(Adw.ApplicationWindow):
         self.import_stage = ("prepare", 0, None)
         self.import_button.set_sensitive(False)
         self.cancel_import_button.set_sensitive(True)
-        for control in getattr(self, "rebuild_buttons", []):
+        for control in getattr(self, "rebuild_buttons", []) + getattr(self, "remove_buttons", []):
             control.set_sensitive(False)
         self.import_title.set_text(("Reconstruindo " if rebuild else "Importando ") + fmt["title"])
         self.import_progress.set_fraction(0)
@@ -570,14 +624,14 @@ class Window(Adw.ApplicationWindow):
                 self.import_timer = 0
             self.import_panel.set_visible(False)
             self.import_button.set_sensitive(True)
-            for control in getattr(self, "rebuild_buttons", []):
+            for control in getattr(self, "rebuild_buttons", []) + getattr(self, "remove_buttons", []):
                 control.set_sensitive(True)
             if isinstance(error, ImportCancelled):
                 self.toast_overlay.add_toast(Adw.Toast.new("Importação cancelada"))
             elif isinstance(error, DictionaryAlreadyInstalled):
                 self.refresh_dictionaries()
                 self.toast_overlay.add_toast(Adw.Toast.new("Dicionário já instalado"))
-                self.show_catalog()
+                self.populate_preferences()
             elif error:
                 dialog = Adw.MessageDialog(transient_for=self, heading="Não foi possível importar",
                                            body=str(error))
@@ -586,10 +640,11 @@ class Window(Adw.ApplicationWindow):
                 dialog.present()
             else:
                 self.refresh_dictionaries()
+                self.populate_preferences()
                 if rebuild:
                     self.generation += 1
                     clear(self.results)
-                    self.show_catalog()
+                    self.populate_preferences()
                 self.toast_overlay.add_toast(Adw.Toast.new(f'Dicionário {"reconstruído" if rebuild else "importado"}: {result["entries"]:n} verbetes'))
         def report(stage, count, total):
             # Immutable snapshot; the GTK main thread alone updates widgets.
@@ -609,6 +664,9 @@ class Window(Adw.ApplicationWindow):
             self.import_status.set_text("Cancele a importação ou aguarde a conclusão.")
             return True
         self.closed = True
+        if self.preferences is not None:
+            self.preferences.destroy()
+            self.preferences = None
         if self.timeout:
             GLib.source_remove(self.timeout)
         self.stop_audio()

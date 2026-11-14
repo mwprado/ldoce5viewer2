@@ -1,4 +1,4 @@
-# Verbum 0.3.9 — Projeto Cangaço
+# Verbum 0.3.10 — Projeto Cangaço
 
 Verbum replaces the provisional DictViewer name on this development branch.
 The existing Longman application remains unchanged.
@@ -120,3 +120,7 @@ The sidebar shows only the lemma and grammatical class in muted italic text. Hom
 ## Unified lexical search (0.3.9)
 
 The GUI has one search field, no mode selector. Exact headwords rank first, then prefix completions, then similar spellings (accent folding and bounded edit distance including adjacent transposition). All selected dictionaries are considered. The spelling index is built lazily in memory and cached by VLF file identity; no rebuild or external service is needed. Similarity is orthographic, not semantic. CLI retains explicit exact/prefix/fulltext modes, with smart as its default.
+
+## Preferences and window layout (0.3.10)
+
+A single full-width header above the content pane, with Importar and the primary menu at the right. The dictionary selector precedes the search field. Dictionary management is in Preferences → Dicionários. Removal unregisters the dictionary and moves the active VLF into private recovery storage under removed/; original files and older generations are preserved. Recovery/cleanup UI is not yet implemented.

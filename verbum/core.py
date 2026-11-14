@@ -97,6 +97,35 @@ class Registry:
             raise ValueError("Unknown dictionary: " + identifier)
         return json.loads(row[0]), Path(row[1])
 
+    def remove_dictionary(self, identifier):
+        """Unregister the active VLF, retaining a private recovery copy."""
+        with closing(sqlite3.connect(self.path)) as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute("SELECT id,path FROM dictionaries WHERE slug=? OR id=?", (identifier, identifier)).fetchone()
+            if row is None:
+                raise ValueError("Dicionário não encontrado")
+            path = Path(row[1])
+            base = (self.root / "dictionaries").resolve()
+            if not path.resolve().is_relative_to(base) or path.suffix != ".vlf" or path.is_symlink():
+                raise ValueError("Caminho VLF inválido")
+            backup = None
+            if path.exists():
+                recovery = self.root / "removed"
+                recovery.mkdir(mode=0o700, exist_ok=True)
+                backup = recovery / (uuid.uuid4().hex + ".vlf")
+                os.link(path, backup)
+            try:
+                db.execute("DELETE FROM dictionaries WHERE id=?", (row[0],))
+                db.commit()
+            except BaseException:
+                if backup:
+                    backup.unlink(missing_ok=True)
+                raise
+            # Registry no longer references this file. Original sources are untouched.
+            if backup:
+                path.unlink(missing_ok=True)
+        return str(backup) if backup else None
+
     def import_entries(self, metadata, entries, *, total=None, progress=None, cancel=None, rebuild=None):
         check_cancel(cancel)
         m = manifest_info(metadata)

@@ -134,5 +134,16 @@ class VerbumTests(unittest.TestCase):
         self.assertEqual(self.registry.search("agua")[0]["entry"]["lemma"], "Água")
         self.assertEqual(self.registry.search("home", mode="exact")[0]["entry"]["lemma"], "home")
 
+    def test_remove_dictionary_preserves_source(self):
+        original = Path(self.tmp.name) / "source.json"
+        original.write_text("original", encoding="utf-8")
+        m = self.registry.import_entries(dict(self.meta, source_path=str(original)), [{"lemma":"demo"}])
+        backup = self.registry.remove_dictionary(m["slug"])
+        self.assertEqual(self.registry.list(), [])
+        self.assertFalse(Path(m["path"]).exists())
+        self.assertTrue(Path(backup).exists())
+        self.assertEqual(original.read_text(encoding="utf-8"), "original")
+        self.registry.import_entries(self.meta, [{"lemma":"new"}])
+
 if __name__ == "__main__":
     unittest.main()
