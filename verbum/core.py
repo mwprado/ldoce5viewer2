@@ -105,8 +105,9 @@ class Registry:
                     data = json.dumps(payload, ensure_ascii=False, allow_nan=False)
                     cursor = db.execute("INSERT INTO entries(lemma,normalized,language,payload) VALUES (?,?,?,?)",
                                         (lemma, normalize(lemma), language, data))
+                    searchable = json.dumps({k:v for k,v in payload.items() if k not in ("source", "media")}, ensure_ascii=False)
                     db.execute("INSERT INTO search_index(rowid,lemma,body) VALUES (?,?,?)",
-                               (cursor.lastrowid, lemma, data))
+                               (cursor.lastrowid, lemma, searchable))
                     count += 1
                 if not count:
                     raise ValueError("Empty dictionary")

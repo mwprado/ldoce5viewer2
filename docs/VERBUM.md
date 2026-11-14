@@ -1,4 +1,4 @@
-# Verbum 0.1.1 — Projeto Cangaço
+# Verbum 0.2.0 — Projeto Cangaço
 
 Verbum replaces the provisional DictViewer name on this development branch.
 The existing Longman application remains unchanged.
@@ -41,7 +41,7 @@ Importers must consume the original files supplied by the user (installation dir
 
 ## Next milestones
 
-Native Longman IDM/SKN importer first, followed by native VOLP and other verified source formats; optional trusted PKLZ compatibility; structured sense/media schema; GTK4/libadwaita and WebKitGTK; Gio D-Bus query/import interfaces; GNOME Shell SearchProvider2; LibreOffice UNO; RPM packaging. No proprietary content or indices are distributed. Import only authorized sources.
+Native VOLP and other verified source formats; optional trusted PKLZ compatibility; structured sense/media schema; GTK4/libadwaita and WebKitGTK; Gio D-Bus query/import interfaces; GNOME Shell SearchProvider2; LibreOffice UNO; RPM packaging. No proprietary content or indices are distributed. Import only authorized sources.
 
 Proposed application ID: io.github.mwprado.Verbum.
 
@@ -51,4 +51,14 @@ Proposed application ID: io.github.mwprado.Verbum.
     python3 -m verbum catalog --method import
     python3 -m verbum catalog --origin longman
 
-The bundled catalog is metadata only, separate from installed dictionaries. An external TOML catalog can be supplied with --catalog-file. Access (local/web/hybrid) and distribution (import/download/web) are distinct. Redistribution defaults to false; downloads require explicit open/public-domain status, a license reference, HTTPS URL and SHA-256. These declarations still require human license verification. Proprietary JSON imports are rejected; native importers are not yet available. Download installation and remote lookup are not implemented. The catalog's listed sources are descriptions, not a promise of availability.
+The bundled catalog is metadata only, separate from installed dictionaries. An external TOML catalog can be supplied with --catalog-file. Access (local/web/hybrid) and distribution (import/download/web) are distinct. Redistribution defaults to false; downloads require explicit open/public-domain status, a license reference, HTTPS URL and SHA-256. These declarations still require human license verification. Proprietary JSON imports are rejected; the native Longman importer is available. Download installation and remote lookup are not implemented. The catalog's listed sources are descriptions, not a promise of availability.
+
+## Native Longman import (0.2.0)
+
+On Fedora install python3-lxml if needed. The existing LDOCE5 reader is reused without Qt.
+
+    python3 -m verbum import ~/App/ldoce5.data --format longman --authorized
+    python3 -m verbum search water --origin longman --mode exact
+    python3 -m unittest discover -s tests -p 'test_verbum*.py' -v
+
+No manifest is needed. This imports the fs.skn entry archive, retaining exact XML bytes in base64, source IDs, definitions, examples, grammar, variants and media references. Original audio/image and supplementary archives are not embedded or served yet; preserve the source directory. Variants are searchable in fulltext, not exact/prefix yet. No proprietary dictionary data is committed. Synthetic IDM/SKN archive tests exercise the original reader; real edition validation requires a locally authorized copy.

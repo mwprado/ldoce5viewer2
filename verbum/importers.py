@@ -16,6 +16,14 @@ def json_entries(source, source_format=None):
             yield from data
 
 def import_dictionary(registry, metadata, source, source_format="json"):
+    if source_format == "longman":
+        from . import longman
+        if metadata:
+            raise ValueError("Longman uses its native catalog metadata; omit --manifest")
+        path = longman.validate_source(source)
+        return registry.import_entries(longman.metadata(path), longman.entries(path))
+    if metadata is None:
+        raise ValueError("JSON/JSONL requires --manifest")
     if source_format not in ("json", "jsonl"):
         raise ValueError("Unsupported source format: " + source_format)
     from .catalog import distribution_info

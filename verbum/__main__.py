@@ -15,8 +15,8 @@ def main(argv=None):
     sub = parser.add_subparsers(dest="command", required=True)
     imp = sub.add_parser("import")
     imp.add_argument("source")
-    imp.add_argument("--manifest", required=True)
-    imp.add_argument("--format", choices=["json", "jsonl"], default="json")
+    imp.add_argument("--manifest")
+    imp.add_argument("--format", choices=["json", "jsonl", "longman"], default="json")
     imp.add_argument("--authorized", action="store_true", help="Confirm authorization to import this source")
     for name in ("list", "search", "catalog"):
         p = sub.add_parser(name)
@@ -35,8 +35,10 @@ def main(argv=None):
         if args.command == "import":
             if not args.authorized:
                 parser.error("Import requires --authorized")
-            with Path(args.manifest).open("rb") as f:
-                metadata = tomllib.load(f)
+            metadata = None
+            if args.manifest:
+                with Path(args.manifest).open("rb") as f:
+                    metadata = tomllib.load(f)
             result = import_dictionary(registry, metadata, args.source, args.format)
         else:
             filters = {key: getattr(args, key) for key in ("language", "origin", "function")}
