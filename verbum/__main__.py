@@ -29,6 +29,7 @@ def main(argv=None):
             p.add_argument("query")
             p.add_argument("--mode", choices=["prefix", "exact", "fulltext"], default="prefix")
             p.add_argument("--limit", type=int, default=50)
+    sub.add_parser("gui", help="Launch the native GNOME interface")
     media = sub.add_parser("media", help="List or retrieve media from original sources")
     media.add_argument("dictionary")
     media.add_argument("entry_id", type=int)
@@ -37,6 +38,12 @@ def main(argv=None):
     media.add_argument("--output", type=Path)
     args = parser.parse_args(argv)
     try:
+        if args.command == "gui":
+            try:
+                from .gtk import main as gui_main
+            except (ImportError, ValueError) as exc:
+                raise ValueError("GTK4, libadwaita and PyGObject are required: " + str(exc)) from exc
+            return gui_main(args.root)
         registry = Registry(args.root)
         if args.command == "import":
             if not args.authorized:

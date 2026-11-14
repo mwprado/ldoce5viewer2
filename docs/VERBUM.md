@@ -1,4 +1,4 @@
-# Verbum 0.2.1 — Projeto Cangaço
+# Verbum 0.3.0 — Projeto Cangaço
 
 Verbum replaces the provisional DictViewer name on this development branch.
 The existing Longman application remains unchanged.
@@ -70,4 +70,17 @@ Search results now include the numeric entry_id. Use it with the dictionary slug
     python3 -m verbum media en-longman-learner-5 ENTRY_ID
     python3 -m verbum media en-longman-learner-5 ENTRY_ID --index 0 --output /tmp/pronunciation.mp3
 
-Indices are zero-based. For an image use --fullsize when available. The command refuses to overwrite an output file. Media is read from original archives only on explicit request. A process-local index cache accelerates repeated lookups; nothing is downloaded or permanently copied into VLF. Existing 0.2.0 databases are compatible. No playback or GTK rendering yet. Synthetic media tests verify byte retrieval, not codec validity.
+Indices are zero-based. For an image use --fullsize when available. The command refuses to overwrite an output file. Media is read from original archives only on explicit request. A process-local index cache accelerates repeated lookups; nothing is downloaded or permanently copied into VLF. Existing 0.2.0 databases are compatible. GTK playback and image display are available in 0.3.0. Synthetic media tests verify byte retrieval, not codec validity.
+
+## Native GTK interface (0.3.0)
+
+On Fedora, install the system Python bindings and GTK media backend:
+
+    sudo dnf install python3-gobject gtk4 libadwaita python3-lxml gtk4-media-gstreamer
+    python3 -m verbum gui
+
+The GUI supports incremental/exact/fulltext search, installed-dictionary selection, structured entry display, native Longman import with explicit authorization, and on-demand audio and image playback/display. Audio uses Gtk.MediaFile and Gtk.MediaControls; codec availability depends on the GStreamer installation. Temporary audio files are private and removed when replaced or on normal exit. No network requests or WebKit rendering in this version. Use the existing original Longman directory for media. The catalog shows unimplemented providers as planned.
+
+GUI smoke test under Xvfb (system Python with GI installed):
+
+    VERBUM_GTK_TEST=1 xvfb-run -a /usr/bin/python3 -m unittest discover -s tests -p test_verbum_gtk.py -v

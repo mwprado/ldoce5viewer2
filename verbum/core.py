@@ -138,7 +138,7 @@ class Registry:
         finally:
             temp.unlink(missing_ok=True)
 
-    def search(self, query, language=None, origin=None, function=None, limit=50, mode="prefix"):
+    def search(self, query, language=None, origin=None, function=None, limit=50, mode="prefix", dictionary=None):
         if not isinstance(limit, int) or not 1 <= limit <= 1000:
             raise ValueError("limit must be 1..1000")
         key = normalize(query)
@@ -147,6 +147,8 @@ class Registry:
         if mode not in ("prefix", "exact", "fulltext"):
             raise ValueError("Invalid search mode")
         selected = self.list(language, origin, function)
+        if dictionary:
+            selected = [m for m in selected if dictionary in (m["slug"], m["id"])]
         with closing(sqlite3.connect(self.path)) as registry:
             paths = dict(registry.execute("SELECT id,path FROM dictionaries"))
         result = []
