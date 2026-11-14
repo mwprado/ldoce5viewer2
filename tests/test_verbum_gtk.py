@@ -28,5 +28,15 @@ class GtkTests(unittest.TestCase):
             self.assertIn("TOML", win.import_description.get_text())
             win.import_dialog.response("cancel")
             self.assertIsNone(win.import_dialog)
+            self.assertFalse(win.import_panel.get_visible())
+            win.importing = True
+            from threading import Event
+            win.import_cancel = Event()
+            win.import_stage = ("index", 25, 100)
+            win.render_import_progress()
+            self.assertEqual(win.import_progress.get_fraction(), 0.25)
+            win.cancel_import()
+            self.assertTrue(win.import_cancel.is_set())
+            win.importing = False
             win.on_close()
             win.destroy()

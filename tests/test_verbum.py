@@ -78,5 +78,32 @@ class VerbumTests(unittest.TestCase):
             self.assertEqual(code, 0)
             self.assertEqual(len(Registry(root / "data").list()), 1)
 
+    def test_import_progress_cancel_and_duplicate(self):
+        from threading import Event
+        from verbum.core import ImportCancelled, DictionaryAlreadyInstalled
+        events = []
+        cancel = Event()
+        def report(stage, count, total):
+            events.append((stage, count, total))
+            if stage == "index" and count == 128:
+                cancel.set()
+        with self.assertRaises(ImportCancelled):
+            self.registry.import_entries(self.meta, ({"lemma":str(i)} for i in range(200)),
+                                         total=200, progress=report, cancel=cancel)
+        self.assertEqual(self.registry.list(), [])
+        self.assertFalse(list(Path(self.tmp.name).rglob("*.vlf")))
+        self.assertIn(("index", 128, 200), events)
+        events.clear()
+        self.registry.import_entries(self.meta, [{"lemma":"original"}], total=1,
+                                     progress=lambda *args: events.append(args))
+        self.assertIn(("verify", 1, 1), events)
+        self.assertIn(("publish", 1, 1), events)
+        def should_not_read():
+            self.fail("Duplicate import consumed entries")
+            yield {}
+        with self.assertRaises(DictionaryAlreadyInstalled):
+            self.registry.import_entries(self.meta, should_not_read())
+        self.assertEqual(len(self.registry.search("original")), 1)
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,4 +1,4 @@
-# Verbum 0.3.3 — Projeto Cangaço
+# Verbum 0.3.4 — Projeto Cangaço
 
 Verbum replaces the provisional DictViewer name on this development branch.
 The existing Longman application remains unchanged.
@@ -96,3 +96,7 @@ The graphical dialog confirms only the import operation and its source. It does 
 ## GNOME layout (0.3.3)
 
 Native split header bars, navigation-sidebar results, clamped reading column, status page, symbolic media icons and preferences-group catalog. Uses system theme and typography without custom CSS. GTK4/libadwaita remain the toolkit; this is not a GTK3 port.
+
+## Import feedback (0.3.4)
+
+Inline progress follows the GNOME HIG: real indexed-entry counts for Longman, activity mode for preparation/verification and unknown totals, cancellation before publication, and completion toasts. Duplicate dictionary identities are rejected without replacing existing data. The GTK thread polls progress snapshots; imports remain in the worker. Cancellation is cooperative and may wait for an archive read or integrity check to finish. See https://developer.gnome.org/hig/patterns/feedback/progress-bars.html and https://developer.gnome.org/hig/patterns/feedback/toasts.html.

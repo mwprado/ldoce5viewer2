@@ -2,6 +2,7 @@
 import concurrent.futures
 import tempfile
 import tomllib
+import threading
 from pathlib import Path
 
 import gi
@@ -10,7 +11,7 @@ gi.require_version("Adw", "1")
 gi.require_version("Gdk", "4.0")
 from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 
-from .core import Registry
+from .core import Registry, ImportCancelled, DictionaryAlreadyInstalled
 from .catalog import catalog_list
 from .importers import IMPORT_FORMATS, import_dictionary
 from .media import get_media
@@ -61,7 +62,9 @@ class Window(Adw.ApplicationWindow):
         self.connect("close-request", self.on_close)
         # GNOME split-view pattern: distinct sidebar and content header bars.
         outer = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        self.set_content(outer)
+        self.toast_overlay = Adw.ToastOverlay()
+        self.toast_overlay.set_child(outer)
+        self.set_content(self.toast_overlay)
         pane = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL, position=300, vexpand=True, hexpand=True)
         pane.add_css_class("sidebar-pane")
         outer.append(pane)
@@ -102,6 +105,21 @@ class Window(Adw.ApplicationWindow):
         self.status.set_margin_top(8)
         self.status.set_margin_bottom(12)
         left.append(self.status)
+        self.import_panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8,
+                                    margin_start=12, margin_end=12, margin_bottom=12)
+        self.import_panel.set_visible(False)
+        left.append(self.import_panel)
+        self.import_title = label("", "heading")
+        self.import_title.set_selectable(False)
+        self.import_panel.append(self.import_title)
+        self.import_progress = Gtk.ProgressBar(show_text=False)
+        self.import_panel.append(self.import_progress)
+        self.import_status = label("", "dim-label")
+        self.import_status.set_selectable(False)
+        self.import_panel.append(self.import_status)
+        self.cancel_import_button = button("Cancelar importação", self.cancel_import)
+        self.import_panel.append(self.cancel_import_button)
+        self.import_timer = 0
         right = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, hexpand=True)
         pane.set_end_child(right)
         header = Adw.HeaderBar()
@@ -409,31 +427,85 @@ class Window(Adw.ApplicationWindow):
                        if response == "import" else None)
         dialog.present()
 
+    def cancel_import(self, *_):
+        if self.importing and self.import_stage[0] != "publish":
+            self.import_cancel.set()
+            self.cancel_import_button.set_sensitive(False)
+            self.import_status.set_text("Cancelando…")
+
+    def render_import_progress(self):
+        if not self.importing:
+            self.import_timer = 0
+            return GLib.SOURCE_REMOVE
+        stage, count, total = self.import_stage
+        if stage == "publish":
+            self.cancel_import_button.set_sensitive(False)
+        if self.import_cancel.is_set() and stage != "publish":
+            self.import_status.set_text("Cancelando…")
+            return GLib.SOURCE_CONTINUE
+        if stage == "index" and total:
+            self.import_progress.set_fraction(min(1.0, count / total))
+            self.import_status.set_text(f"{count:n} de {total:n} verbetes indexados")
+        else:
+            self.import_progress.pulse()
+            messages = {"prepare": "Lendo arquivos da fonte…",
+                        "index": f"{count:n} verbetes indexados",
+                        "verify": "Verificando a integridade da base…",
+                        "publish": "Registrando o dicionário…"}
+            self.import_status.set_text(messages.get(stage, "Importando…"))
+        return GLib.SOURCE_CONTINUE
+
     def start_import(self, fmt, path, manifest=None):
         if self.importing:
             return
         self.importing = True
+        self.import_cancel = threading.Event()
+        self.import_stage = ("prepare", 0, None)
         self.import_button.set_sensitive(False)
-        self.status.set_text("Importando e indexando " + fmt["title"] + "…")
+        self.cancel_import_button.set_sensitive(True)
+        self.import_title.set_text("Importando " + fmt["title"])
+        self.import_progress.set_fraction(0)
+        self.import_status.set_text("Lendo arquivos da fonte…")
+        self.import_panel.set_visible(True)
+        self.import_timer = GLib.timeout_add(120, self.render_import_progress)
         def complete(result, error):
             self.importing = False
+            if self.import_timer:
+                GLib.source_remove(self.import_timer)
+                self.import_timer = 0
+            self.import_panel.set_visible(False)
             self.import_button.set_sensitive(True)
-            if error:
-                self.status.set_text(str(error))
+            if isinstance(error, ImportCancelled):
+                self.toast_overlay.add_toast(Adw.Toast.new("Importação cancelada"))
+            elif isinstance(error, DictionaryAlreadyInstalled):
+                self.refresh_dictionaries()
+                self.toast_overlay.add_toast(Adw.Toast.new("Dicionário já instalado"))
+                self.show_catalog()
+            elif error:
+                dialog = Adw.MessageDialog(transient_for=self, heading="Não foi possível importar",
+                                           body=str(error))
+                dialog.add_response("close", "Fechar")
+                dialog.set_close_response("close")
+                dialog.present()
             else:
                 self.refresh_dictionaries()
-                self.status.set_text(f'Importação concluída: {result["entries"]} entradas.')
+                self.toast_overlay.add_toast(Adw.Toast.new(f'Dicionário importado: {result["entries"]:n} verbetes'))
+        def report(stage, count, total):
+            # Immutable snapshot; the GTK main thread alone updates widgets.
+            self.import_stage = (stage, count, total)
         def run():
             metadata = None
             if manifest:
                 with Path(manifest).open("rb") as stream:
                     metadata = tomllib.load(stream)
-            return import_dictionary(self.registry, metadata, path, fmt["id"])
+            return import_dictionary(self.registry, metadata, path, fmt["id"],
+                                     progress=report, cancel=self.import_cancel)
         self.work(run, complete)
 
     def on_close(self, *_):
         if self.importing:
-            self.status.set_text("Aguarde a conclusão da importação antes de fechar.")
+            self.import_panel.set_visible(True)
+            self.import_status.set_text("Cancele a importação ou aguarde a conclusão.")
             return True
         self.closed = True
         if self.timeout:

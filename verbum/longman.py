@@ -86,12 +86,22 @@ def parse_entry(data, source_name):
             "media":media,
             "source":{"archive":"fs", "file":source_name, "xml_base64":base64.b64encode(data).decode("ascii")}}
 
-def entries(source):
+def locations(source, cancel=None):
+    from .core import check_cancel
+    path = validate_source(source)
+    reader, _ = _reader()
+    result = []
+    for location in reader.list_files(str(path), "fs"):
+        check_cancel(cancel)
+        result.append(location)
+    return result
+
+def entries(source, locations=None):
     path = validate_source(source)
     reader, etree = _reader()
     seen = set()
     with reader.ArchiveReader(str(path), "fs") as archive:
-        for dirs, name, location in reader.list_files(str(path), "fs"):
+        for dirs, name, location in (locations if locations is not None else reader.list_files(str(path), "fs")):
             source_name = "/".join((*dirs, name))
             try:
                 raw = archive.read(location)

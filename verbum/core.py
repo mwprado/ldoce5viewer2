@@ -56,6 +56,16 @@ def manifest_info(m, *, catalog=False):
         raise ValueError("Web sources cannot be imported as VLF")
     return m
 
+class ImportCancelled(Exception):
+    """Import cancelled before publication."""
+
+class DictionaryAlreadyInstalled(ValueError):
+    """The dictionary identity is already registered or its file exists."""
+
+def check_cancel(cancel):
+    if cancel is not None and cancel.is_set():
+        raise ImportCancelled("Importação cancelada")
+
 def default_root():
     return Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local/share") / "verbum"
 
@@ -87,11 +97,20 @@ class Registry:
             raise ValueError("Unknown dictionary: " + identifier)
         return json.loads(row[0]), Path(row[1])
 
-    def import_entries(self, metadata, entries):
+    def import_entries(self, metadata, entries, *, total=None, progress=None, cancel=None):
+        check_cancel(cancel)
         m = manifest_info(metadata)
+        def report(stage, count):
+            if progress:
+                progress(stage, count, total)
+        with closing(sqlite3.connect(self.path)) as registry:
+            if registry.execute("SELECT 1 FROM dictionaries WHERE id=? OR slug=?", (m["id"], m["slug"])).fetchone():
+                raise DictionaryAlreadyInstalled("Dicionário já instalado: " + m["title"])
         directory = self.root / "dictionaries" / m["language"] / m["origin"]
         directory.mkdir(mode=0o700, parents=True, exist_ok=True)
         target = directory / (m["slug"] + ".vlf")
+        if target.exists():
+            raise DictionaryAlreadyInstalled("Já existe uma base VLF neste caminho: " + str(target))
         fd, name = tempfile.mkstemp(dir=directory, suffix=".tmp")
         os.close(fd)
         temp = Path(name)
@@ -101,7 +120,9 @@ class Registry:
                 db.executescript(SCHEMA)
                 db.execute("INSERT INTO metadata VALUES (?,?)", ("manifest", json.dumps(m, ensure_ascii=False)))
                 count = 0
+                report("index", count)
                 for entry in entries:
+                    check_cancel(cancel)
                     if not isinstance(entry, dict):
                         raise ValueError("Entry must be an object")
                     lemma = entry.get("lemma")
@@ -117,17 +138,30 @@ class Registry:
                     db.execute("INSERT INTO search_index(rowid,lemma,body) VALUES (?,?,?)",
                                (cursor.lastrowid, lemma, searchable))
                     count += 1
+                    if count % 128 == 0:
+                        report("index", count)
+                check_cancel(cancel)
+                report("verify", count)
                 if not count:
                     raise ValueError("Empty dictionary")
                 db.commit()
                 if db.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
                     raise ValueError("Invalid VLF database")
+            check_cancel(cancel)
             with closing(sqlite3.connect(self.path)) as registry:
                 registry.execute("BEGIN IMMEDIATE")
-                registry.execute("INSERT INTO dictionaries VALUES (?,?,?,?)",
-                                 (m["id"], m["slug"], str(target), json.dumps(m, ensure_ascii=False)))
+                check_cancel(cancel)
+                report("publish", count)
+                try:
+                    registry.execute("INSERT INTO dictionaries VALUES (?,?,?,?)",
+                                     (m["id"], m["slug"], str(target), json.dumps(m, ensure_ascii=False)))
+                except sqlite3.IntegrityError as exc:
+                    raise DictionaryAlreadyInstalled("Dicionário já instalado: " + m["title"]) from exc
                 # Hard link refuses to overwrite an existing dictionary.
-                os.link(temp, target)
+                try:
+                    os.link(temp, target)
+                except FileExistsError as exc:
+                    raise DictionaryAlreadyInstalled("Já existe uma base VLF neste caminho: " + str(target)) from exc
                 published = True
                 registry.commit()
             return dict(m, entries=count, path=str(target))
