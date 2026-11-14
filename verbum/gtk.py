@@ -9,12 +9,13 @@ import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 gi.require_version("Gdk", "4.0")
-from gi.repository import Adw, Gdk, Gio, GLib, Gtk
+from gi.repository import Adw, Gdk, Gio, GLib, Gtk, Pango
 
 from .core import Registry, ImportCancelled, DictionaryAlreadyInstalled
 from .catalog import catalog_list
 from .importers import IMPORT_FORMATS, import_dictionary
 from .media import get_media
+from .result_labels import result_labels
 
 APP_ID = "io.github.mwprado.Verbum"
 
@@ -195,17 +196,15 @@ class Window(Adw.ApplicationWindow):
             if error:
                 self.status.set_text(str(error))
                 return
-            for hit in hits:
+            for hit, display in zip(hits, result_labels(hits)):
                 row = Gtk.ListBoxRow()
                 row.hit = hit
-                box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, margin_start=10, margin_end=10, margin_top=6, margin_bottom=6)
-                word = label(hit["entry"]["lemma"])
-                word.set_selectable(False)
-                box.append(word)
-                source = label(next((m["title"] for m in self.manifests if m["slug"] == hit["dictionary"]), hit["dictionary"]), "dim-label")
-                source.set_selectable(False)
-                box.append(source)
-                row.set_child(box)
+                word = Gtk.Label(label=display, xalign=0, margin_start=10,
+                                 margin_end=10, margin_top=8, margin_bottom=8)
+                word.set_ellipsize(Pango.EllipsizeMode.END)
+                source = next((m["title"] for m in self.manifests if m["slug"] == hit["dictionary"]), hit["dictionary"])
+                row.set_tooltip_text(display + "\n" + source)
+                row.set_child(word)
                 self.results.append(row)
             self.status.set_text(f"{len(hits)} resultado(s), máximo 100.")
             if hits:

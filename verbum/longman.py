@@ -87,7 +87,7 @@ def parse_entry(data, source_name):
                           "fullsize":"fullsize/" + thumb.split("/")[-1]})
     variants = _texts(head.xpath(".//INFLX | .//ABBR"))
     return {"lemma": lemma, "language":"en", "source_id":source_id,
-            "homograph":_text(head.find("HOMNUM")),
+            "homograph":_text(head.find("HOMNUM")) or _text(head.find("HWD/HOMNUM")),
             "grammar":{"pos":_texts(head.findall("POS")), "notes":_texts(head.findall("GRAM"))},
             "variants":variants, "senses":senses,
             "definitions":_texts(root.iter("DEF")),

@@ -1,4 +1,4 @@
-# Verbum 0.3.6 — Projeto Cangaço
+# Verbum 0.3.7 — Projeto Cangaço
 
 Verbum replaces the provisional DictViewer name on this development branch.
 The existing Longman application remains unchanged.
@@ -108,3 +108,7 @@ Library lists installed dictionaries separately with a Reconstruir action. Impor
 ## Contextual pronunciation (0.3.6)
 
 Headword pronunciation controls appear near the lemma; example audio controls appear next to their original example text and use the source XML association, never an inferred ordering. Unassociated media are shown separately. Existing Longman VLF files recover associations from preserved XML without reimport when media references match exactly. New imports store the associations explicitly.
+
+## Compact search results (0.3.7)
+
+One line per entry: lemma, original homograph number when available, grammatical class, and a local disambiguation index only for identical visible labels. Dictionary title is in the entry panel and row tooltip rather than a repeated subtitle. Entries and senses are not merged; existing VLF bases remain compatible.
