@@ -59,44 +59,75 @@ class Window(Adw.ApplicationWindow):
         self.audio_path = None
         self.temp = tempfile.TemporaryDirectory(prefix="verbum-audio-")
         self.connect("close-request", self.on_close)
-        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        # GNOME split-view pattern: distinct sidebar and content header bars.
+        outer = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
         self.set_content(outer)
-        header = Adw.HeaderBar()
-        header.set_title_widget(Adw.WindowTitle(title="Verbum"))
-        header.pack_start(button("Biblioteca", self.show_catalog))
-        self.import_button = button("Importar", self.show_import_dialog)
-        header.pack_end(self.import_button)
-        outer.append(header)
-        self.status = label("Consulte os dicionários locais.")
-        self.status.set_margin_start(12)
-        self.status.set_margin_end(12)
-        self.status.set_margin_bottom(8)
-        pane = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL, position=320, vexpand=True)
+        pane = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL, position=300, vexpand=True, hexpand=True)
+        pane.add_css_class("sidebar-pane")
         outer.append(pane)
-        outer.append(self.status)
-        left = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8, margin_start=12, margin_end=12, margin_top=12, margin_bottom=12)
+        left = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        left.add_css_class("sidebar")
+        left.set_size_request(240, -1)
         pane.set_start_child(left)
         pane.set_resize_start_child(False)
         pane.set_shrink_start_child(False)
+        sidebar_header = Adw.HeaderBar()
+        sidebar_header.set_show_end_title_buttons(False)
+        sidebar_header.set_title_widget(Adw.WindowTitle(title="Verbum"))
+        left.append(sidebar_header)
+        library = Gtk.Button(icon_name="view-list-symbolic", tooltip_text="Biblioteca")
+        library.connect("clicked", self.show_catalog)
+        sidebar_header.pack_start(library)
+        self.import_button = button("Importar", self.show_import_dialog)
+        sidebar_header.pack_end(self.import_button)
+        filters = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6,
+                          margin_start=12, margin_end=12, margin_top=6, margin_bottom=8)
+        left.append(filters)
         self.search = Gtk.SearchEntry(placeholder_text="Pesquisar palavra…")
-        left.append(self.search)
+        filters.append(self.search)
         self.dictionary = Gtk.DropDown()
-        left.append(self.dictionary)
+        filters.append(self.dictionary)
         self.mode = Gtk.DropDown.new_from_strings(["Prefixo", "Exata", "Texto integral"])
-        left.append(self.mode)
+        filters.append(self.mode)
         self.results = Gtk.ListBox(selection_mode=Gtk.SelectionMode.SINGLE)
-        self.results.add_css_class("boxed-list")
+        self.results.add_css_class("navigation-sidebar")
         self.results.connect("row-selected", self.select_result)
         sc = scroll(self.results)
         sc.set_vexpand(True)
         left.append(sc)
-        self.detail = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_start=24, margin_end=24, margin_top=20, margin_bottom=20)
-        pane.set_end_child(scroll(self.detail))
+        self.status = label("Consulte os dicionários locais.", "dim-label")
+        self.status.set_selectable(False)
+        self.status.set_margin_start(12)
+        self.status.set_margin_end(12)
+        self.status.set_margin_top(8)
+        self.status.set_margin_bottom(12)
+        left.append(self.status)
+        right = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, hexpand=True)
+        pane.set_end_child(right)
+        header = Adw.HeaderBar()
+        header.set_show_start_title_buttons(False)
+        self.content_title = Adw.WindowTitle(title="Dicionário")
+        header.set_title_widget(self.content_title)
+        right.append(header)
+        self.detail = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12,
+                              margin_start=24, margin_end=24, margin_top=24, margin_bottom=32)
+        clamp = Adw.Clamp(maximum_size=760, tightening_threshold=580)
+        clamp.set_child(self.detail)
+        content_scroll = scroll(clamp)
+        content_scroll.set_vexpand(True)
+        right.append(content_scroll)
+        self.set_default_widget(self.search)
         self.search.connect("search-changed", self.schedule_search)
         self.dictionary.connect("notify::selected", self.schedule_search)
         self.mode.connect("notify::selected", self.schedule_search)
         self.refresh_dictionaries()
-        self.detail.append(label("Pesquise uma palavra ou importe um dicionário.", "title-2"))
+        self.show_empty()
+
+    def show_empty(self, title="Pesquisar palavras", description="Digite uma palavra ou importe um dicionário para começar."):
+        self.reset_detail()
+        self.content_title.set_title("Dicionário")
+        page = Adw.StatusPage(icon_name="system-search-symbolic", title=title, description=description)
+        self.detail.append(page)
 
     def refresh_dictionaries(self):
         self.manifests = self.registry.list()
@@ -133,6 +164,7 @@ class Window(Adw.ApplicationWindow):
         mode = ("prefix", "exact", "fulltext")[self.mode.get_selected()]
         if not query:
             clear(self.results)
+            self.show_empty()
             self.status.set_text("Digite uma palavra.")
             return GLib.SOURCE_REMOVE
         self.status.set_text("Pesquisando…")
@@ -149,16 +181,19 @@ class Window(Adw.ApplicationWindow):
                 row = Gtk.ListBoxRow()
                 row.hit = hit
                 box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, margin_start=10, margin_end=10, margin_top=6, margin_bottom=6)
-                box.append(label(hit["entry"]["lemma"], "heading"))
-                box.append(label(hit["dictionary"], "dim-label"))
+                word = label(hit["entry"]["lemma"])
+                word.set_selectable(False)
+                box.append(word)
+                source = label(next((m["title"] for m in self.manifests if m["slug"] == hit["dictionary"]), hit["dictionary"]), "dim-label")
+                source.set_selectable(False)
+                box.append(source)
                 row.set_child(box)
                 self.results.append(row)
             self.status.set_text(f"{len(hits)} resultado(s), máximo 100.")
             if hits:
                 self.results.select_row(self.results.get_row_at_index(0))
             else:
-                self.reset_detail()
-                self.detail.append(label("Nenhum resultado encontrado."))
+                self.show_empty("Nenhum resultado", "Tente outra palavra ou modo de pesquisa.")
         self.work(find, complete)
         return GLib.SOURCE_REMOVE
 
@@ -181,8 +216,9 @@ class Window(Adw.ApplicationWindow):
         self.reset_detail()
         hit = row.hit
         e = hit["entry"]
+        self.content_title.set_title("Verbum")
         self.detail.append(label(e["lemma"], "title-1"))
-        self.detail.append(label(hit["dictionary"], "dim-label"))
+        self.detail.append(label(next((m["title"] for m in self.manifests if m["slug"] == hit["dictionary"]), hit["dictionary"]), "dim-label"))
         grammar = e.get("grammar", {})
         if isinstance(grammar, dict):
             parts = values(grammar.get("pos")) + values(grammar.get("notes"))
@@ -194,7 +230,7 @@ class Window(Adw.ApplicationWindow):
         media = e.get("media", [])
         if isinstance(media, list) and media:
             self.detail.append(label("Pronúncias e imagens", "heading"))
-            flow = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, max_children_per_line=3)
+            flow = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, max_children_per_line=4, homogeneous=False, row_spacing=6, column_spacing=6, halign=Gtk.Align.START)
             self.detail.append(flow)
             self.media_area = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
             for index, ref in enumerate(media):
@@ -207,7 +243,14 @@ class Window(Adw.ApplicationWindow):
                 title = names[archive]
                 if archive in ("exa_pron", "picture"):
                     title += f" {index+1}"
-                flow.insert(button(title, lambda _, i=index: self.load_media(hit, i)), -1)
+                control = Gtk.Button(tooltip_text=title)
+                content = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+                content.append(Gtk.Image.new_from_icon_name("audio-volume-high-symbolic" if archive != "picture" else "image-x-generic-symbolic"))
+                content.append(Gtk.Label(label=title))
+                control.set_child(content)
+                control.add_css_class("flat")
+                control.connect("clicked", lambda _, i=index: self.load_media(hit, i))
+                flow.insert(control, -1)
                 if archive == "picture" and ref.get("fullsize"):
                     flow.insert(button("Imagem integral", lambda _, i=index: self.load_media(hit, i, True)), -1)
             self.detail.append(self.media_area)
@@ -221,6 +264,7 @@ class Window(Adw.ApplicationWindow):
                 examples = values(sense.get("examples"))
                 if definitions or examples:
                     rendered = True
+                    self.detail.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
                     self.detail.append(label(f"Acepção {n}", "heading"))
                     for text in definitions:
                         self.detail.append(label(text))
@@ -277,12 +321,18 @@ class Window(Adw.ApplicationWindow):
             GLib.source_remove(self.timeout)
             self.timeout = 0
         self.reset_detail()
+        self.content_title.set_title("Biblioteca")
         self.detail.append(label("Biblioteca de dicionários", "title-1"))
+        group = Adw.PreferencesGroup(title="Dicionários disponíveis")
+        self.detail.append(group)
         for m in catalog_list(self.registry):
-            self.detail.append(label(m["title"], "heading"))
             d = m["distribution"]
             state = "Instalado" if m["installed"] else ("Importável" if d.get("importer") in {fmt["id"] for fmt in IMPORT_FORMATS} else "Planejado")
-            self.detail.append(label(f'{m["language"]} · {m["origin"]} · {m["function"]} · {state}', "dim-label"))
+            row = Adw.ActionRow(title=GLib.markup_escape_text(m["title"]), subtitle=f'{m["language"]} · {m["origin"]} · {m["function"]}')
+            suffix = Gtk.Label(label=state, valign=Gtk.Align.CENTER)
+            suffix.add_css_class("dim-label")
+            row.add_suffix(suffix)
+            group.add(row)
         self.detail.append(label("As fontes web e os demais importadores ainda não estão ativos."))
 
     def show_import_dialog(self, *_):
@@ -296,7 +346,12 @@ class Window(Adw.ApplicationWindow):
         self.import_dialog = dialog
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         self.import_format = Gtk.DropDown.new_from_strings([fmt["title"] for fmt in IMPORT_FORMATS])
-        box.append(self.import_format)
+        group = Adw.PreferencesGroup()
+        row = Adw.ActionRow(title="Formato")
+        self.import_format.set_valign(Gtk.Align.CENTER)
+        row.add_suffix(self.import_format)
+        group.add(row)
+        box.append(group)
         self.import_description = label(IMPORT_FORMATS[0]["description"], "dim-label")
         box.append(self.import_description)
         self.import_format.connect("notify::selected", lambda *_:

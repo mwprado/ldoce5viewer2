@@ -1,4 +1,4 @@
-# Verbum 0.3.2 — Projeto Cangaço
+# Verbum 0.3.3 — Projeto Cangaço
 
 Verbum replaces the provisional DictViewer name on this development branch.
 The existing Longman application remains unchanged.
@@ -92,3 +92,7 @@ The header button is now Importar. Choose a supported format in the dialog: Long
 ## Import confirmation (0.3.2)
 
 The graphical dialog confirms only the import operation and its source. It does not ask the user to attest to authorization to use the dictionary. CLI import requires no authorization flag; the old flag remains accepted for compatibility but has no effect. Distribution restrictions and technical source validation are unchanged.
+
+## GNOME layout (0.3.3)
+
+Native split header bars, navigation-sidebar results, clamped reading column, status page, symbolic media icons and preferences-group catalog. Uses system theme and typography without custom CSS. GTK4/libadwaita remain the toolkit; this is not a GTK3 port.
