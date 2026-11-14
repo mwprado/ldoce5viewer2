@@ -28,7 +28,7 @@ def main(argv=None):
             p.add_argument("--method", choices=["import", "download", "web"])
         if name == "search":
             p.add_argument("query")
-            p.add_argument("--mode", choices=["prefix", "exact", "fulltext"], default="prefix")
+            p.add_argument("--mode", choices=["smart", "prefix", "exact", "fulltext"], default="smart")
             p.add_argument("--limit", type=int, default=50)
     sub.add_parser("gui", help="Launch the native GNOME interface")
     media = sub.add_parser("media", help="List or retrieve media from original sources")

@@ -90,8 +90,6 @@ class Window(Adw.ApplicationWindow):
         filters.append(self.search)
         self.dictionary = Gtk.DropDown()
         filters.append(self.dictionary)
-        self.mode = Gtk.DropDown.new_from_strings(["Prefixo", "Exata", "Texto integral"])
-        filters.append(self.mode)
         self.results = Gtk.ListBox(selection_mode=Gtk.SelectionMode.SINGLE)
         self.results.add_css_class("navigation-sidebar")
         self.results.connect("row-selected", self.select_result)
@@ -138,7 +136,6 @@ class Window(Adw.ApplicationWindow):
         self.set_default_widget(self.search)
         self.search.connect("search-changed", self.schedule_search)
         self.dictionary.connect("notify::selected", self.schedule_search)
-        self.mode.connect("notify::selected", self.schedule_search)
         self.refresh_dictionaries()
         self.show_empty()
 
@@ -180,7 +177,6 @@ class Window(Adw.ApplicationWindow):
         generation = self.generation
         idx = self.dictionary.get_selected()
         selected = self.manifests[idx-1]["slug"] if 0 < idx <= len(self.manifests) else None
-        mode = ("prefix", "exact", "fulltext")[self.mode.get_selected()]
         if not query:
             clear(self.results)
             self.show_empty()
@@ -188,7 +184,7 @@ class Window(Adw.ApplicationWindow):
             return GLib.SOURCE_REMOVE
         self.status.set_text("Pesquisando…")
         def find():
-            return self.registry.search(query, mode=mode, limit=100, dictionary=selected)
+            return self.registry.search(query, mode="smart", limit=100, dictionary=selected)
         def complete(hits, error):
             if generation != self.generation:
                 return
@@ -214,11 +210,14 @@ class Window(Adw.ApplicationWindow):
                 row.set_tooltip_text(lemma + (" (" + pos + ")" if pos else "") + "\n" + source)
                 row.set_child(box)
                 self.results.append(row)
-            self.status.set_text(f"{len(hits)} resultado(s), máximo 100.")
+            if hits and all(h.get("match") == "similar" for h in hits):
+                self.status.set_text("Palavras semelhantes encontradas.")
+            else:
+                self.status.set_text(f"{len(hits)} resultado(s), máximo 100.")
             if hits:
                 self.results.select_row(self.results.get_row_at_index(0))
             else:
-                self.show_empty("Nenhum resultado", "Tente outra palavra ou modo de pesquisa.")
+                self.show_empty("Nenhum resultado", "Tente outra grafia ou palavra.")
         self.work(find, complete)
         return GLib.SOURCE_REMOVE
 

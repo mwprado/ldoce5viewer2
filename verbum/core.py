@@ -191,19 +191,22 @@ class Registry:
                 except OSError:
                     pass
 
-    def search(self, query, language=None, origin=None, function=None, limit=50, mode="prefix", dictionary=None):
+    def search(self, query, language=None, origin=None, function=None, limit=50, mode="smart", dictionary=None):
         if not isinstance(limit, int) or not 1 <= limit <= 1000:
             raise ValueError("limit must be 1..1000")
         key = normalize(query)
         if not key:
             return []
-        if mode not in ("prefix", "exact", "fulltext"):
+        if mode not in ("smart", "prefix", "exact", "fulltext"):
             raise ValueError("Invalid search mode")
         selected = self.list(language, origin, function)
         if dictionary:
             selected = [m for m in selected if dictionary in (m["slug"], m["id"])]
         with closing(sqlite3.connect(self.path)) as registry:
             paths = dict(registry.execute("SELECT id,path FROM dictionaries"))
+        if mode == "smart":
+            from .search import ranked_search
+            return ranked_search(self, query, selected, paths, limit)
         result = []
         for m in selected:
             with closing(connect_read(paths[m["id"]])) as db:

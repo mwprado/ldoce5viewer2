@@ -121,5 +121,18 @@ class VerbumTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.registry.import_entries(dict(self.meta, origin="other"), [{"lemma":"bad"}], rebuild=slug)
 
+    def test_smart_search(self):
+        self.registry.import_entries(dict(self.meta, language="en"), [
+            {"lemma":"home"}, {"lemma":"homework"}, {"lemma":"house"}, {"lemma":"hone"},
+            {"lemma":"receive"}, {"lemma":"water"}, {"lemma":"Água"}])
+        hits = self.registry.search("home")
+        self.assertEqual(hits[0]["match"], "exact")
+        self.assertEqual(hits[0]["entry"]["lemma"], "home")
+        self.assertEqual(hits[1]["entry"]["lemma"], "homework")
+        self.assertIn("hone", [h["entry"]["lemma"] for h in hits])
+        self.assertEqual(self.registry.search("recieve")[0]["entry"]["lemma"], "receive")
+        self.assertEqual(self.registry.search("agua")[0]["entry"]["lemma"], "Água")
+        self.assertEqual(self.registry.search("home", mode="exact")[0]["entry"]["lemma"], "home")
+
 if __name__ == "__main__":
     unittest.main()
