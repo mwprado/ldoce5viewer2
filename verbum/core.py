@@ -79,6 +79,14 @@ class Registry:
                 and (not origin or origin == m["origin"])
                 and (not function or function in [m["function"], *m.get("functions", [])])]
 
+    def dictionary(self, identifier):
+        with closing(sqlite3.connect(self.path)) as db:
+            row = db.execute("SELECT manifest,path FROM dictionaries WHERE slug=? OR id=?",
+                             (identifier, identifier)).fetchone()
+        if row is None:
+            raise ValueError("Unknown dictionary: " + identifier)
+        return json.loads(row[0]), Path(row[1])
+
     def import_entries(self, metadata, entries):
         m = manifest_info(metadata)
         directory = self.root / "dictionaries" / m["language"] / m["origin"]
@@ -146,11 +154,11 @@ class Registry:
             with closing(connect_read(paths[m["id"]])) as db:
                 if mode == "fulltext":
                     expression = '"' + query.replace('"', '""') + '"'
-                    rows = db.execute("SELECT e.payload FROM search_index s JOIN entries e ON e.id=s.rowid WHERE search_index MATCH ? LIMIT ?", (expression, limit)).fetchall()
+                    rows = db.execute("SELECT e.id,e.payload FROM search_index s JOIN entries e ON e.id=s.rowid WHERE search_index MATCH ? LIMIT ?", (expression, limit)).fetchall()
                 elif mode == "exact":
-                    rows = db.execute("SELECT payload FROM entries WHERE normalized=? ORDER BY id LIMIT ?", (key, limit)).fetchall()
+                    rows = db.execute("SELECT id,payload FROM entries WHERE normalized=? ORDER BY id LIMIT ?", (key, limit)).fetchall()
                 else:
                     escaped = key.replace("!", "!!").replace("%", "!%").replace("_", "!_")
-                    rows = db.execute("SELECT payload FROM entries WHERE normalized LIKE ? ESCAPE '!' ORDER BY normalized,id LIMIT ?", (escaped+"%", limit)).fetchall()
-                result.extend({"dictionary": m["slug"], "entry": json.loads(row[0])} for row in rows)
+                    rows = db.execute("SELECT id,payload FROM entries WHERE normalized LIKE ? ESCAPE '!' ORDER BY normalized,id LIMIT ?", (escaped+"%", limit)).fetchall()
+                result.extend({"dictionary": m["slug"], "entry_id": row[0], "entry": json.loads(row[1])} for row in rows)
         return result[:limit]

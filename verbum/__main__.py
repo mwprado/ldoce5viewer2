@@ -29,6 +29,12 @@ def main(argv=None):
             p.add_argument("query")
             p.add_argument("--mode", choices=["prefix", "exact", "fulltext"], default="prefix")
             p.add_argument("--limit", type=int, default=50)
+    media = sub.add_parser("media", help="List or retrieve media from original sources")
+    media.add_argument("dictionary")
+    media.add_argument("entry_id", type=int)
+    media.add_argument("--index", type=int)
+    media.add_argument("--fullsize", action="store_true")
+    media.add_argument("--output", type=Path)
     args = parser.parse_args(argv)
     try:
         registry = Registry(args.root)
@@ -40,6 +46,19 @@ def main(argv=None):
                 with Path(args.manifest).open("rb") as f:
                     metadata = tomllib.load(f)
             result = import_dictionary(registry, metadata, args.source, args.format)
+        elif args.command == "media":
+            from .media import entry_media, get_media
+            if args.index is None:
+                if args.output or args.fullsize:
+                    parser.error("--output and --fullsize require --index")
+                _, result = entry_media(registry, args.dictionary, args.entry_id)
+            else:
+                if args.output is None:
+                    parser.error("--index requires --output")
+                data, mime = get_media(registry, args.dictionary, args.entry_id, args.index, args.fullsize)
+                with args.output.open("xb") as out:
+                    out.write(data)
+                result = {"mime":mime, "bytes":len(data), "output":str(args.output)}
         else:
             filters = {key: getattr(args, key) for key in ("language", "origin", "function")}
             if args.command == "catalog":

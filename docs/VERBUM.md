@@ -1,4 +1,4 @@
-# Verbum 0.2.0 — Projeto Cangaço
+# Verbum 0.2.1 — Projeto Cangaço
 
 Verbum replaces the provisional DictViewer name on this development branch.
 The existing Longman application remains unchanged.
@@ -61,4 +61,13 @@ On Fedora install python3-lxml if needed. The existing LDOCE5 reader is reused w
     python3 -m verbum search water --origin longman --mode exact
     python3 -m unittest discover -s tests -p 'test_verbum*.py' -v
 
-No manifest is needed. This imports the fs.skn entry archive, retaining exact XML bytes in base64, source IDs, definitions, examples, grammar, variants and media references. Original audio/image and supplementary archives are not embedded or served yet; preserve the source directory. Variants are searchable in fulltext, not exact/prefix yet. No proprietary dictionary data is committed. Synthetic IDM/SKN archive tests exercise the original reader; real edition validation requires a locally authorized copy.
+No manifest is needed. This imports the fs.skn entry archive, retaining exact XML bytes in base64, source IDs, definitions, examples, grammar, variants and media references. Original audio/image files are not embedded; preserve the source directory. Version 0.2.1 resolves media on demand. Supplementary lexical archives are not yet served. Variants are searchable in fulltext, not exact/prefix yet. No proprietary dictionary data is committed. Synthetic IDM/SKN archive tests exercise the original reader; real edition validation requires a locally authorized copy.
+
+## Media retrieval (0.2.1)
+
+Search results now include the numeric entry_id. Use it with the dictionary slug:
+
+    python3 -m verbum media en-longman-learner-5 ENTRY_ID
+    python3 -m verbum media en-longman-learner-5 ENTRY_ID --index 0 --output /tmp/pronunciation.mp3
+
+Indices are zero-based. For an image use --fullsize when available. The command refuses to overwrite an output file. Media is read from original archives only on explicit request. A process-local index cache accelerates repeated lookups; nothing is downloaded or permanently copied into VLF. Existing 0.2.0 databases are compatible. No playback or GTK rendering yet. Synthetic media tests verify byte retrieval, not codec validity.
