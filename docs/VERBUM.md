@@ -35,8 +35,12 @@ Run:
 
 Default data directory: XDG_DATA_HOME/verbum or ~/.local/share/verbum. Use --root before the command for isolated testing. Import refuses duplicate slug/UUID and publishes a validated database without overwriting an existing one. The registry and file publication are not crash-atomic across both resources; recovery and update workflows are future work.
 
+## Native-source import policy
+
+Importers must consume the original files supplied by the user (installation directories, native archives, publisher files, or original documents). VLF is the canonical output; PKLZ is an optional compatibility input, never a prerequisite. Preserve original spelling, source identifiers, edition, provenance and licensing. Detect source formats by their structure, not filenames alone. Keep the original source unchanged. For proprietary sources, require authorization and do not distribute extracted data or indices. JSON/JSONL remains supported for open structured sources and synthetic tests.
+
 ## Next milestones
 
-Longman and trusted PKLZ importers; structured sense/media schema; GTK4/libadwaita and WebKitGTK; Gio D-Bus query/import interfaces; GNOME Shell SearchProvider2; LibreOffice UNO; RPM packaging. No proprietary content or indices are distributed. Import only authorized sources.
+Native Longman IDM/SKN importer first, followed by native VOLP and other verified source formats; optional trusted PKLZ compatibility; structured sense/media schema; GTK4/libadwaita and WebKitGTK; Gio D-Bus query/import interfaces; GNOME Shell SearchProvider2; LibreOffice UNO; RPM packaging. No proprietary content or indices are distributed. Import only authorized sources.
 
 Proposed application ID: io.github.mwprado.Verbum.
