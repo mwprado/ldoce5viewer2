@@ -1,0 +1,15 @@
+name: Verbum tests
+on:
+  push:
+    branches: [dictviewer]
+  pull_request:
+    branches: [dictviewer]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m unittest discover -s tests -p test_verbum.py
