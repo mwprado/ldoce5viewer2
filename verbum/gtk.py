@@ -62,7 +62,7 @@ class Window(Adw.ApplicationWindow):
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         self.set_content(outer)
         header = Adw.HeaderBar()
-        header.set_title_widget(Adw.WindowTitle(title="Verbum", subtitle="Projeto Cangaço"))
+        header.set_title_widget(Adw.WindowTitle(title="Verbum"))
         header.pack_start(button("Biblioteca", self.show_catalog))
         self.import_button = button("Importar", self.show_import_dialog)
         header.pack_end(self.import_button)
