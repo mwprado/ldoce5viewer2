@@ -1,6 +1,6 @@
 Name:           ldoce5viewer
 Version:        2013.04.24
-Release:        7%{?dist}
+Release:        8%{?dist}
 Summary:        Dictionary viewer for the Longman Dictionary of Contemporary English 5th Edition
 
 License:        GPL-3.0-or-later AND LicenseRef-Fedora-Public-Domain
@@ -61,11 +61,16 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/ldoce5viewer.desktop
 %license COPYING.txt LICENSE.txt
 %doc README.md
 %{_bindir}/ldoce5viewer
+%{_bindir}/ldoce5-verbum-export
 %{_datadir}/applications/ldoce5viewer.desktop
 %{_datadir}/metainfo/ldoce5viewer.appdata.xml
 %{_datadir}/icons/hicolor/scalable/apps/ldoce5viewer.svg
 
 %changelog
+* Sat Nov 14 2026 Moacyr Prado - 2013.04.24-8
+- Install ldoce5-verbum-export for external Verbum integration
+- Keep the GPL IDM/SKN reader in the ldoce5viewer package
+
 * Fri Nov 06 2026 Moacyr Prado - 2013.04.24-7
 - Use Qt 6 uic and rcc directly to generate Python UI/resource modules
 - Replace pyside6-tools BuildRequires with qt6-qtbase-devel for EPEL 9 compatibility
